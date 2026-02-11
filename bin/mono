@@ -1,0 +1,195 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * Pixielity Monorepo CLI
+ *
+ * This is the main entry point for the Pixielity monorepo management tool.
+ * It provides a comprehensive suite of commands for managing PHP monorepos
+ * including code generation, testing, linting, module management, and more.
+ *
+ * Installation:
+ *   1. Install via Composer: composer require pixielity-monorepo/cli
+ *   2. The bin/monorepo symlink is created automatically
+ *   3. Use: php bin/monorepo [command]
+ *
+ * Usage:
+ *   php bin/monorepo list                 - List all available commands
+ *   php bin/monorepo init                 - Initialize the monorepo
+ *   php bin/monorepo generate             - Generate code from templates
+ *   php bin/monorepo test                 - Run tests across packages
+ *   php bin/monorepo lint                 - Run linting tools
+ *   php bin/monorepo module:list          - List all packages
+ *
+ * Features:
+ *   - Code generation system with templates
+ *   - Module/package management
+ *   - Testing and linting automation
+ *   - Framework detection (Laravel, Symfony, etc.)
+ *   - Plugin system for extensibility
+ *   - Comprehensive error handling and reporting
+ *
+ * Requirements:
+ *   - PHP 8.2 or higher
+ *   - Composer dependencies installed
+ *   - Required PHP extensions: json, mbstring, pcre
+ *
+ * @package Pixielity\Cli
+ * @author  Pixielity Team
+ * @version 1.0.0
+ * @link    https://github.com/pixielity/php-monorepo
+ * @since   1.0.0
+ */
+
+declare(strict_types=1);
+use MonoPhp\Cli\Application;
+
+/*
+ * |--------------------------------------------------------------------------
+ * | Register The Auto Loader
+ * |--------------------------------------------------------------------------
+ * |
+ * | Composer provides a convenient, automatically generated class loader
+ * | for our application. We need to locate and require it, checking multiple
+ * | possible locations depending on how the tool is installed (as a dependency,
+ * | standalone, or within a monorepo structure).
+ * |
+ */
+
+/** @var array<int, string> List of possible autoloader locations */
+$autoloadPaths = [
+    __DIR__ . '/../vendor/autoload.php',  // CLI tool vendor (.tools/cli/vendor)
+    __DIR__ . '/../../../vendor/autoload.php',  // Monorepo root vendor
+    __DIR__ . '/../../../autoload.php',  // Installed as dependency (bin/monorepo)
+];
+
+$autoloaderFound = false;
+
+foreach ($autoloadPaths as $autoloadPath) {
+    if (file_exists($autoloadPath)) {
+        require_once $autoloadPath;
+        $autoloaderFound = true;
+        break;
+    }
+}
+
+// Exit gracefully if autoloader cannot be found
+if (!$autoloaderFound) {
+    fwrite(
+        STDERR,
+        'Error: Unable to find Composer autoloader.' . PHP_EOL
+            . 'Please run "composer install" in the project root.' . PHP_EOL
+    );
+    exit(1);
+}
+
+/*
+ * |--------------------------------------------------------------------------
+ * | Verify PHP Version
+ * |--------------------------------------------------------------------------
+ * |
+ * | This application requires PHP 8.2 or higher to run. We check the version
+ * | early to provide a clear error message if the requirement is not met.
+ * |
+ */
+
+if (PHP_VERSION_ID < 80200) {
+    fwrite(
+        STDERR,
+        sprintf(
+            'Error: PHP 8.2 or higher is required. You are running PHP %s.' . PHP_EOL,
+            PHP_VERSION
+        )
+    );
+    exit(1);
+}
+
+/*
+ * |--------------------------------------------------------------------------
+ * | Verify Required PHP Extensions
+ * |--------------------------------------------------------------------------
+ * |
+ * | Check that all required PHP extensions are loaded. These extensions are
+ * | essential for the application to function properly. If any are missing,
+ * | we provide a clear error message listing what needs to be installed.
+ * |
+ */
+
+/** @var array<int, string> List of required PHP extensions */
+$requiredExtensions = ['json', 'mbstring', 'pcre'];
+
+/** @var array<int, string> List of missing extensions */
+$missingExtensions = [];
+
+foreach ($requiredExtensions as $extension) {
+    if (!extension_loaded($extension)) {
+        $missingExtensions[] = $extension;
+    }
+}
+
+if (!empty($missingExtensions)) {
+    fwrite(
+        STDERR,
+        'Error: Missing required PHP extensions: ' . implode(', ', $missingExtensions) . PHP_EOL
+    );
+    exit(1);
+}
+
+/*
+ * |--------------------------------------------------------------------------
+ * | Configure Error Handling
+ * |--------------------------------------------------------------------------
+ * |
+ * | Convert PHP errors to exceptions for better error handling and debugging.
+ * | This ensures that all errors are caught and handled consistently through
+ * | the application's exception handling mechanism.
+ * |
+ */
+
+set_error_handler(function ($severity, $message, $file, $line) {
+    // Respect error_reporting setting
+    if (!(error_reporting() & $severity)) {
+        return;
+    }
+
+    // Convert error to exception for consistent handling
+    throw new ErrorException($message, 0, $severity, $file, $line);
+});
+
+/*
+ * |--------------------------------------------------------------------------
+ * | Run The Console Application
+ * |--------------------------------------------------------------------------
+ * |
+ * | Bootstrap the kernel and execute the console application. All exceptions
+ * | are caught and formatted for clear error reporting. The application returns
+ * | an exit code that indicates success (0) or failure (non-zero).
+ * |
+ */
+
+try {
+    /** @var Application $kernel The application kernel */
+    $kernel = Application::make();
+
+    /** @var int $exitCode The command exit status code */
+    $exitCode = $kernel->run();
+
+    exit($exitCode);
+} catch (\Throwable $e) {
+    // Format and display fatal errors with full context
+    fwrite(
+        STDERR,
+        sprintf(
+            'Fatal Error: %s' . PHP_EOL
+                . 'File: %s:%d' . PHP_EOL
+                . PHP_EOL
+                . 'Stack trace:' . PHP_EOL
+                . '%s' . PHP_EOL,
+            $e->getMessage(),
+            $e->getFile(),
+            $e->getLine(),
+            $e->getTraceAsString()
+        )
+    );
+    exit(1);
+}
