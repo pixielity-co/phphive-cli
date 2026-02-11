@@ -1,0 +1,193 @@
+# ============================================================================
+# Automatic Release Workflow - PhpHive CLI
+# ============================================================================
+#
+# This workflow automatically creates GitHub releases and tags when changes
+# are pushed to the main branch. It reads the version from CHANGELOG.md and
+# creates a release with the changelog content.
+#
+# Process:
+#   1. Extract version from CHANGELOG.md (e.g., [1.0.3])
+#   2. Check if tag already exists
+#   3. Create annotated git tag
+#   4. Extract release notes from CHANGELOG.md
+#   5. Create GitHub release with notes
+#   6. Trigger Packagist update webhook
+#
+# Triggers:
+#   - Push to main branch (excluding tag pushes)
+#
+# ============================================================================
+
+name: Release
+
+# ----------------------------------------------------------------------------
+# Workflow Triggers
+# ----------------------------------------------------------------------------
+on:
+  push:
+    branches:
+      - main
+    # Don't run on tag pushes to avoid infinite loops
+    tags-ignore:
+      - "**"
+    # Only run if CHANGELOG.md is modified
+    paths:
+      - "CHANGELOG.md"
+
+  # Allow manual workflow dispatch
+  workflow_dispatch:
+
+# ----------------------------------------------------------------------------
+# Permissions
+# ----------------------------------------------------------------------------
+permissions:
+  contents: write # Required to create releases and tags
+
+# ----------------------------------------------------------------------------
+# Jobs
+# ----------------------------------------------------------------------------
+jobs:
+  # --------------------------------------------------------------------------
+  # Create Release
+  # --------------------------------------------------------------------------
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      # ----------------------------------------------------------------------
+      # Checkout Code
+      # ----------------------------------------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Fetch all history and tags
+          fetch-depth: 0
+
+      # ----------------------------------------------------------------------
+      # Extract Version from CHANGELOG
+      # ----------------------------------------------------------------------
+      - name: Extract version from CHANGELOG
+        id: version
+        run: |
+          # Extract the first version number from CHANGELOG.md
+          VERSION=$(grep -m 1 -oP '(?<=## \[)[0-9]+\.[0-9]+\.[0-9]+(?=\])' CHANGELOG.md)
+
+          if [ -z "$VERSION" ]; then
+            echo "Error: Could not extract version from CHANGELOG.md"
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "Found version: $VERSION"
+
+      # ----------------------------------------------------------------------
+      # Check if Tag Already Exists
+      # ----------------------------------------------------------------------
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag v${{ steps.version.outputs.version }} already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Tag v${{ steps.version.outputs.version }} does not exist"
+          fi
+
+      # ----------------------------------------------------------------------
+      # Extract Release Notes from CHANGELOG
+      # ----------------------------------------------------------------------
+      - name: Extract release notes
+        if: steps.check_tag.outputs.exists == 'false'
+        id: release_notes
+        run: |
+          # Extract content between the first and second version headers
+          NOTES=$(awk '/^## \[[0-9]+\.[0-9]+\.[0-9]+\]/{if(++count==1){flag=1;next}else{flag=0}}flag' CHANGELOG.md)
+
+          # Create multiline output
+          {
+            echo 'notes<<EOF'
+            echo "$NOTES"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
+      # ----------------------------------------------------------------------
+      # Configure Git
+      # ----------------------------------------------------------------------
+      - name: Configure Git
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # ----------------------------------------------------------------------
+      # Create Git Tag
+      # ----------------------------------------------------------------------
+      - name: Create git tag
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          git tag -a "v${{ steps.version.outputs.version }}" -m "Release v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
+
+      # ----------------------------------------------------------------------
+      # Create GitHub Release
+      # ----------------------------------------------------------------------
+      - name: Create GitHub Release
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          release_name: v${{ steps.version.outputs.version }}
+          body: |
+            # PhpHive CLI v${{ steps.version.outputs.version }}
+
+            ${{ steps.release_notes.outputs.notes }}
+
+            ---
+
+            ## 📦 Installation
+
+            ```bash
+            composer global require phphive/cli
+            ```
+
+            ## 🔗 Links
+
+            - [Documentation](https://pixielity.gitbook.io/phphive-cli/)
+            - [Packagist Package](https://packagist.org/packages/phphive/cli)
+            - [Full Changelog](https://github.com/pixielity-co/phphive-cli/blob/main/CHANGELOG.md)
+          draft: false
+          prerelease: false
+
+      # ----------------------------------------------------------------------
+      # Summary
+      # ----------------------------------------------------------------------
+      - name: Summary
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          echo "## ✅ Release Created Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: v${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag**: v${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release URL**: https://github.com/pixielity-co/phphive-cli/releases/tag/v${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Summary (Tag Exists)
+        if: steps.check_tag.outputs.exists == 'true'
+        run: |
+          echo "## ℹ️ Tag Already Exists" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Tag v${{ steps.version.outputs.version }} already exists. Skipping release creation." >> $GITHUB_STEP_SUMMARY
+
+# ----------------------------------------------------------------------------
+# Notes
+# ----------------------------------------------------------------------------
+# - This workflow only runs when CHANGELOG.md is modified on main branch
+# - It automatically extracts version and release notes from CHANGELOG.md
+# - Tags and releases are only created if they don't already exist
+# - Packagist webhook is automatically triggered by GitHub (configured in repo)
+# ----------------------------------------------------------------------------
