@@ -1,0 +1,114 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "mono-php/cli",
+    "description": "A powerful, production-ready CLI tool for managing PHP monorepos with Turborepo integration",
+    "type": "library",
+    "keywords": [
+        "monorepo",
+        "cli",
+        "turborepo",
+        "workspace",
+        "php",
+        "composer",
+        "build-tool",
+        "developer-tools"
+    ],
+    "homepage": "https://github.com/mono-php/cli",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Mono PHP Team",
+            "email": "team@mono-php.dev"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/mono-php/cli/issues",
+        "source": "https://github.com/mono-php/cli",
+        "docs": "https://github.com/mono-php/cli#readme"
+    },
+    "require": {
+        "php": "^8.3",
+        "symfony/console": "^7.2",
+        "symfony/process": "^7.2",
+        "symfony/finder": "^7.2",
+        "laravel/prompts": "^0.3",
+        "illuminate/support": "^11.0",
+        "illuminate/container": "^11.0"
+    },
+    "require-dev": {
+        "phpstan/phpstan": "^2.0",
+        "phpstan/phpstan-strict-rules": "^2.0",
+        "phpstan/extension-installer": "^1.4",
+        "laravel/pint": "^1.18",
+        "rector/rector": "^2.0",
+        "phpunit/phpunit": "^11.5",
+        "mockery/mockery": "^1.6",
+        "infection/infection": "^0.29"
+    },
+    "autoload": {
+        "psr-4": {
+            "MonoPhp\\Cli\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "MonoPhp\\Cli\\Tests\\": "tests/",
+            "MonoPhp\\Cli\\Tests\\Fixtures\\": "tests/Fixtures/"
+        }
+    },
+    "bin": [
+        "bin/mono"
+    ],
+    "config": {
+        "sort-packages": true,
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "allow-plugins": {
+            "phpstan/extension-installer": true,
+            "infection/extension-installer": true
+        },
+        "platform": {
+            "php": "8.3.0"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test:coverage": "phpunit --coverage-html=build/coverage",
+        "lint": "pint --test",
+        "format": "pint",
+        "typecheck": "phpstan analyse --memory-limit=2G",
+        "refactor": "rector process",
+        "refactor:dry": "rector process --dry-run",
+        "mutate": "infection --threads=4",
+        "check": [
+            "@test",
+            "@lint",
+            "@typecheck",
+            "@refactor:dry"
+        ],
+        "fix": [
+            "@format",
+            "@refactor"
+        ],
+        "post-install-cmd": [
+            "@php -r \"file_exists('build') || mkdir('build', 0755, true);\""
+        ],
+        "post-update-cmd": [
+            "@php -r \"file_exists('build') || mkdir('build', 0755, true);\""
+        ]
+    },
+    "scripts-descriptions": {
+        "test": "Run PHPUnit test suite",
+        "test:coverage": "Run tests with HTML coverage report",
+        "lint": "Check code style with Laravel Pint",
+        "format": "Fix code style with Laravel Pint",
+        "typecheck": "Run PHPStan static analysis",
+        "refactor": "Apply Rector refactoring changes",
+        "refactor:dry": "Preview Rector refactoring changes",
+        "mutate": "Run Infection mutation testing",
+        "check": "Run all quality checks (test, lint, typecheck, refactor)",
+        "fix": "Fix all auto-fixable issues (format, refactor)"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
