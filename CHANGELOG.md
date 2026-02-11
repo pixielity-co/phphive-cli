@@ -5,6 +5,18 @@ All notable changes to PhpHive CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-02-11
+
+### Changed
+
+- **Updated Dependencies** - Upgraded illuminate/support and illuminate/container from ^11.0 to ^12.0 for compatibility with Laravel 12
+- **Improved Compatibility** - Now compatible with global Composer installations that have Laravel Installer v5.17+
+
+### Fixed
+
+- Resolved dependency conflict when installing globally alongside Laravel Installer
+- Fixed illuminate package version constraints to match latest Laravel ecosystem
+
 ## [1.0.0] - 2026-02-11
 
 ### 🎉 Initial Release
@@ -190,5 +202,6 @@ Built with:
 
 ---
 
+[1.0.1]: https://github.com/pixielity-co/phphive-cli/releases/tag/v1.0.1
 [1.0.0]: https://github.com/pixielity-co/phphive-cli/releases/tag/v1.0.0
-[Unreleased]: https://github.com/pixielity-co/phphive-cli/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/pixielity-co/phphive-cli/compare/v1.0.1...HEAD
