@@ -61,7 +61,7 @@ final class Application extends BaseApplication
     /**
      * Current application version.
      */
-    private const string APP_VERSION = '1.0.0';
+    private const string APP_VERSION = '1.0.1';
 
     /**
      * Whether the ASCII art banner has been displayed.
@@ -278,7 +278,7 @@ final class Application extends BaseApplication
         }
 
         // Register command with Symfony Console
-        $this->addCommand($command);
+        $this->add($command);
     }
 
     /**
