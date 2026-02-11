@@ -1,66 +1,83 @@
-<svg width="1200" height="300" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background gradient -->
+<svg width="1200" height="400" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#16213e;stop-opacity:1" />
     </linearGradient>
-    <linearGradient id="text-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#e0e7ff;stop-opacity:1" />
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#f39c12;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#e74c3c;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#9b59b6;stop-opacity:1" />
     </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <pattern id="hexPattern" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse">
+      <path d="M30 0 L45 15 L45 45 L30 60 L15 45 L15 15 Z" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+    </pattern>
   </defs>
 
   <!-- Background -->
-  <rect width="1200" height="300" fill="url(#bg-gradient)"/>
+  <rect width="1200" height="400" fill="url(#bgGradient)"/>
+  <rect width="1200" height="400" fill="url(#hexPattern)"/>
 
-  <!-- Grid pattern overlay -->
-  <defs>
-    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
-    </pattern>
-  </defs>
-  <rect width="1200" height="300" fill="url(#grid)"/>
-
-  <!-- Terminal icon -->
-  <g transform="translate(200, 80)">
-    <rect x="0" y="0" width="120" height="90" rx="8" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
-    <circle cx="15" cy="15" r="4" fill="#ff5f56"/>
-    <circle cx="30" cy="15" r="4" fill="#ffbd2e"/>
-    <circle cx="45" cy="15" r="4" fill="#27c93f"/>
-    <text x="20" y="50" font-family="'Courier New', monospace" font-size="24" fill="#ffffff" font-weight="bold">$_</text>
-    <rect x="45" y="32" width="3" height="20" fill="#ffffff" opacity="0.8">
-      <animate attributeName="opacity" values="0.8;0;0.8" dur="1s" repeatCount="indefinite"/>
-    </rect>
+  <!-- Honeycomb decoration left -->
+  <g opacity="0.1">
+    <path d="M50 100 L80 120 L80 160 L50 180 L20 160 L20 120 Z" fill="none" stroke="#f39c12" stroke-width="2"/>
+    <path d="M80 160 L110 180 L110 220 L80 240 L50 220 L50 180 Z" fill="none" stroke="#e74c3c" stroke-width="2"/>
+    <path d="M110 100 L140 120 L140 160 L110 180 L80 160 L80 120 Z" fill="none" stroke="#9b59b6" stroke-width="2"/>
   </g>
 
-  <!-- Main title -->
-  <text x="360" y="140" font-family="'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="72" font-weight="bold" fill="url(#text-gradient)">
-    Mono CLI
+  <!-- Honeycomb decoration right -->
+  <g opacity="0.1">
+    <path d="M1150 100 L1180 120 L1180 160 L1150 180 L1120 160 L1120 120 Z" fill="none" stroke="#f39c12" stroke-width="2"/>
+    <path d="M1120 160 L1150 180 L1150 220 L1120 240 L1090 220 L1090 180 Z" fill="none" stroke="#e74c3c" stroke-width="2"/>
+    <path d="M1090 100 L1120 120 L1120 160 L1090 180 L1060 160 L1060 120 Z" fill="none" stroke="#9b59b6" stroke-width="2"/>
+  </g>
+
+  <!-- Main Title -->
+  <text x="600" y="160" font-family="'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="96" font-weight="900" text-anchor="middle" fill="url(#textGradient)" filter="url(#glow)">
+    PhpHive
   </text>
 
   <!-- Subtitle -->
-  <text x="360" y="180" font-family="'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="24" fill="rgba(255,255,255,0.9)">
-    Powerful CLI for PHP Monorepos
+  <text x="600" y="210" font-family="'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="28" font-weight="300" text-anchor="middle" fill="#ecf0f1" opacity="0.9">
+    PHP Monorepo Management powered by Turborepo
   </text>
 
   <!-- Feature badges -->
-  <g transform="translate(360, 210)">
-    <!-- Turborepo badge -->
-    <rect x="0" y="0" width="110" height="28" rx="14" fill="rgba(255,255,255,0.15)"/>
-    <text x="55" y="19" font-family="'SF Pro Text', -apple-system, sans-serif" font-size="13" fill="#ffffff" text-anchor="middle" font-weight="500">⚡ Turborepo</text>
+  <g transform="translate(300, 260)">
+    <!-- Badge 1 -->
+    <rect x="0" y="0" width="180" height="40" rx="20" fill="rgba(243, 156, 18, 0.2)" stroke="#f39c12" stroke-width="2"/>
+    <text x="90" y="26" font-family="'SF Mono', 'Monaco', 'Courier New', monospace" font-size="14" font-weight="600" text-anchor="middle" fill="#f39c12">
+      🚀 Multi-Framework
+    </text>
 
-    <!-- PHP badge -->
-    <rect x="120" y="0" width="90" height="28" rx="14" fill="rgba(255,255,255,0.15)"/>
-    <text x="165" y="19" font-family="'SF Pro Text', -apple-system, sans-serif" font-size="13" fill="#ffffff" text-anchor="middle" font-weight="500">🐘 PHP 8.3+</text>
+    <!-- Badge 2 -->
+    <rect x="200" y="0" width="160" height="40" rx="20" fill="rgba(231, 76, 60, 0.2)" stroke="#e74c3c" stroke-width="2"/>
+    <text x="280" y="26" font-family="'SF Mono', 'Monaco', 'Courier New', monospace" font-size="14" font-weight="600" text-anchor="middle" fill="#e74c3c">
+      ⚡ Turbo Speed
+    </text>
 
-    <!-- Quality badge -->
-    <rect x="220" y="0" width="100" height="28" rx="14" fill="rgba(255,255,255,0.15)"/>
-    <text x="270" y="19" font-family="'SF Pro Text', -apple-system, sans-serif" font-size="13" fill="#ffffff" text-anchor="middle" font-weight="500">✨ Quality</text>
+    <!-- Badge 3 -->
+    <rect x="380" y="0" width="180" height="40" rx="20" fill="rgba(155, 89, 182, 0.2)" stroke="#9b59b6" stroke-width="2"/>
+    <text x="470" y="26" font-family="'SF Mono', 'Monaco', 'Courier New', monospace" font-size="14" font-weight="600" text-anchor="middle" fill="#9b59b6">
+      🎯 Quality Tools
+    </text>
   </g>
 
-  <!-- Decorative elements -->
-  <circle cx="1050" cy="80" r="60" fill="rgba(255,255,255,0.05)"/>
-  <circle cx="1100" cy="220" r="40" fill="rgba(255,255,255,0.03)"/>
-  <circle cx="150" cy="250" r="30" fill="rgba(255,255,255,0.04)"/>
+  <!-- Bottom decoration line -->
+  <line x1="200" y1="350" x2="1000" y2="350" stroke="url(#textGradient)" stroke-width="2" opacity="0.3"/>
+
+  <!-- Version badge -->
+  <g transform="translate(1050, 350)">
+    <rect x="0" y="0" width="100" height="30" rx="15" fill="rgba(46, 204, 113, 0.2)" stroke="#2ecc71" stroke-width="1.5"/>
+    <text x="50" y="20" font-family="'SF Mono', 'Monaco', 'Courier New', monospace" font-size="12" font-weight="600" text-anchor="middle" fill="#2ecc71">
+      v1.0.0
+    </text>
+  </g>
 </svg>
