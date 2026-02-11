@@ -1,0 +1,389 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MonoPhp\Cli\AppTypes;
+
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
+
+/**
+ * Laravel Application Type.
+ *
+ * This class handles the scaffolding and configuration of Laravel applications
+ * within the monorepo. Laravel is a full-stack PHP framework with elegant syntax,
+ * powerful ORM (Eloquent), routing, authentication, and a rich ecosystem of packages.
+ *
+ * Features supported:
+ * - Multiple Laravel versions (10, 11 LTS, 12 Latest)
+ * - Starter kits (Breeze, Jetstream)
+ * - Database configuration (MySQL, PostgreSQL, SQLite, SQL Server)
+ * - Optional packages (Horizon, Telescope, Sanctum)
+ * - Automatic key generation and migration
+ *
+ * The scaffolding process:
+ * 1. Collect configuration through interactive prompts
+ * 2. Create Laravel project using Composer
+ * 3. Install selected starter kit and packages
+ * 4. Configure database and run migrations
+ * 5. Apply stub templates for monorepo integration
+ *
+ * Example configuration:
+ * ```php
+ * [
+ *     'name' => 'api',
+ *     'description' => 'REST API service',
+ *     'laravel_version' => '12',
+ *     'starter_kit' => 'none',
+ *     'database' => 'mysql',
+ *     'install_sanctum' => true,
+ *     'install_horizon' => false,
+ *     'install_telescope' => true,
+ * ]
+ * ```
+ *
+ * @see https://laravel.com Laravel Framework
+ * @see AbstractAppType
+ */
+class LaravelAppType extends AbstractAppType
+{
+    /**
+     * Get the display name of this application type.
+     *
+     * Returns a human-readable name shown in the application type selection menu.
+     *
+     * @return string The display name "Laravel"
+     */
+    public function getName(): string
+    {
+        return 'Laravel';
+    }
+
+    /**
+     * Get a brief description of this application type.
+     *
+     * Returns a short description shown in the application type selection menu
+     * to help users understand what this app type provides.
+     *
+     * @return string A brief description of Laravel
+     */
+    public function getDescription(): string
+    {
+        return 'Full-stack PHP framework with elegant syntax';
+    }
+
+    /**
+     * Collect configuration through interactive prompts.
+     *
+     * This method guides the user through a series of interactive questions
+     * to gather all necessary configuration for creating a Laravel application.
+     *
+     * Configuration collected:
+     * - Application name and description
+     * - Laravel version (10, 11 LTS, 12 Latest)
+     * - Starter kit (None, Breeze, Jetstream)
+     * - Database driver (MySQL, PostgreSQL, SQLite, SQL Server)
+     * - Optional packages (Horizon, Telescope, Sanctum)
+     *
+     * The configuration array is used by:
+     * - getInstallCommand() to determine the installation command
+     * - getPostInstallCommands() to install additional packages
+     * - getStubVariables() to populate stub templates
+     *
+     * @param  InputInterface       $input  Console input interface for reading arguments/options
+     * @param  OutputInterface      $output Console output interface for displaying messages
+     * @return array<string, mixed> Configuration array with all collected settings
+     */
+    public function collectConfiguration(InputInterface $input, OutputInterface $output): array
+    {
+        // Store input/output for use in helper methods
+        $this->input = $input;
+        $this->output = $output;
+
+        // Initialize configuration array
+        $config = [];
+
+        // =====================================================================
+        // BASIC INFORMATION
+        // =====================================================================
+
+        // Application name - used for directory name, package name, and namespace
+        $config['name'] = $this->askText(
+            label: 'Application name',
+            placeholder: 'my-app',
+            required: true
+        );
+
+        // Application description - used in composer.json and documentation
+        $config['description'] = $this->askText(
+            label: 'Application description',
+            placeholder: 'A Laravel application',
+            required: false
+        );
+
+        // =====================================================================
+        // LARAVEL VERSION
+        // =====================================================================
+
+        // Laravel version selection
+        // - Version 12: Latest features and improvements
+        // - Version 11: Long-term support (LTS) with extended maintenance
+        // - Version 10: Previous stable version
+        $config['laravel_version'] = $this->askSelect(
+            label: 'Laravel version',
+            options: [
+                '12' => 'Laravel 12 (Latest)',
+                '11' => 'Laravel 11 (LTS)',
+                '10' => 'Laravel 10',
+            ],
+            default: '12'
+        );
+
+        // =====================================================================
+        // STARTER KIT
+        // =====================================================================
+
+        // Starter kit selection for authentication scaffolding
+        // - None: No authentication scaffolding
+        // - Breeze: Minimal authentication with Blade or Inertia
+        // - Jetstream: Full-featured with teams, 2FA, and profile management
+        $config['starter_kit'] = $this->askSelect(
+            label: 'Starter kit',
+            options: [
+                'none' => 'None',
+                'breeze' => 'Laravel Breeze (Simple authentication)',
+                'jetstream' => 'Laravel Jetstream (Full-featured)',
+            ],
+            default: 'none'
+        );
+
+        // =====================================================================
+        // DATABASE CONFIGURATION
+        // =====================================================================
+
+        // Database driver selection
+        // Determines the default database connection in config/database.php
+        $config['database'] = $this->askSelect(
+            label: 'Database driver',
+            options: [
+                'mysql' => 'MySQL',
+                'pgsql' => 'PostgreSQL',
+                'sqlite' => 'SQLite',
+                'sqlsrv' => 'SQL Server',
+            ],
+            default: 'mysql'
+        );
+
+        // =====================================================================
+        // ADDITIONAL FEATURES
+        // =====================================================================
+
+        // Laravel Horizon - Queue monitoring dashboard
+        // Provides a beautiful dashboard and code-driven configuration for Redis queues
+        $config['install_horizon'] = $this->askConfirm(
+            label: 'Install Laravel Horizon (Queue monitoring)?',
+            default: false
+        );
+
+        // Laravel Telescope - Debugging and insight tool
+        // Provides insight into requests, exceptions, database queries, queued jobs, etc.
+        $config['install_telescope'] = $this->askConfirm(
+            label: 'Install Laravel Telescope (Debugging)?',
+            default: false
+        );
+
+        // Laravel Sanctum - API authentication
+        // Provides a simple token-based authentication system for SPAs and mobile apps
+        $config['install_sanctum'] = $this->askConfirm(
+            label: 'Install Laravel Sanctum (API authentication)?',
+            default: true
+        );
+
+        return $config;
+    }
+
+    /**
+     * Get the Composer command to install Laravel.
+     *
+     * Generates the Composer create-project command to install Laravel
+     * with the specified version. The command creates a new Laravel project
+     * in the current directory.
+     *
+     * Command format:
+     * ```bash
+     * composer create-project laravel/laravel:{version}.x . --prefer-dist
+     * ```
+     *
+     * The --prefer-dist flag ensures distribution packages are downloaded
+     * instead of cloning repositories, which is faster and more reliable.
+     *
+     * @param  array<string, mixed> $config Configuration from collectConfiguration()
+     * @return string               The Composer command to execute
+     */
+    public function getInstallCommand(array $config): string
+    {
+        // Extract Laravel version from config, default to version 12
+        $version = $config['laravel_version'] ?? '12';
+
+        // Return Composer create-project command with version constraint
+        // The .x allows any patch version (e.g., 12.0, 12.1, 12.2)
+        return "composer create-project laravel/laravel:{$version}.x . --prefer-dist";
+    }
+
+    /**
+     * Get post-installation commands to execute.
+     *
+     * Returns an array of shell commands to execute after the base Laravel
+     * installation is complete. These commands install additional packages,
+     * configure the application, and run initial setup tasks.
+     *
+     * Command execution order:
+     * 1. Generate application key (required for encryption)
+     * 2. Install and configure starter kit (if selected)
+     * 3. Install additional packages (Horizon, Telescope, Sanctum)
+     * 4. Run database migrations
+     *
+     * All commands are executed in the application directory and should
+     * complete successfully before the scaffolding is considered complete.
+     *
+     * @param  array<string, mixed> $config Configuration from collectConfiguration()
+     * @return array<string>        Array of shell commands to execute sequentially
+     */
+    public function getPostInstallCommands(array $config): array
+    {
+        // Initialize commands array with required setup
+        $commands = [
+            // Generate application encryption key (required for Laravel)
+            'php artisan key:generate',
+        ];
+
+        // =====================================================================
+        // STARTER KIT INSTALLATION
+        // =====================================================================
+
+        // Install Laravel Breeze if selected
+        // Breeze provides minimal authentication scaffolding
+        if (($config['starter_kit'] ?? 'none') === 'breeze') {
+            // Install Breeze as a dev dependency
+            $commands[] = 'composer require laravel/breeze --dev';
+
+            // Run Breeze installation (creates auth views, routes, controllers)
+            $commands[] = 'php artisan breeze:install';
+        }
+
+        // Install Laravel Jetstream if selected
+        // Jetstream provides full-featured authentication with teams and 2FA
+        elseif (($config['starter_kit'] ?? 'none') === 'jetstream') {
+            // Install Jetstream as a production dependency
+            $commands[] = 'composer require laravel/jetstream';
+
+            // Run Jetstream installation with Livewire stack
+            // (Alternative: inertia for Vue.js/React)
+            $commands[] = 'php artisan jetstream:install livewire';
+        }
+
+        // =====================================================================
+        // ADDITIONAL PACKAGES
+        // =====================================================================
+
+        // Install Laravel Horizon if requested
+        // Horizon provides a dashboard for monitoring Redis queues
+        if ($config['install_horizon'] ?? false) {
+            $commands[] = 'composer require laravel/horizon';
+            $commands[] = 'php artisan horizon:install';
+        }
+
+        // Install Laravel Telescope if requested
+        // Telescope provides debugging and insight into application behavior
+        if ($config['install_telescope'] ?? false) {
+            $commands[] = 'composer require laravel/telescope --dev';
+            $commands[] = 'php artisan telescope:install';
+        }
+
+        // Install Laravel Sanctum if requested
+        // Sanctum provides API token authentication
+        if ($config['install_sanctum'] ?? false) {
+            // Publish Sanctum configuration and migrations
+            $commands[] = 'php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"';
+        }
+
+        // =====================================================================
+        // DATABASE SETUP
+        // =====================================================================
+
+        // Run database migrations to create tables
+        // This includes migrations from Laravel, starter kits, and packages
+        $commands[] = 'php artisan migrate';
+
+        return $commands;
+    }
+
+    /**
+     * Get the path to Laravel-specific stub templates.
+     *
+     * Returns the absolute path to the directory containing stub templates
+     * specifically for Laravel applications. These stubs include:
+     * - composer.json with Laravel-specific dependencies
+     * - package.json for frontend assets
+     * - phpunit.xml for testing configuration
+     * - .env.example with Laravel environment variables
+     * - Monorepo-specific configuration files
+     *
+     * The stub files contain placeholders (e.g., {{APP_NAME}}) that are
+     * replaced with actual values using getStubVariables().
+     *
+     * @return string Absolute path to cli/stubs/laravel-app directory
+     */
+    public function getStubPath(): string
+    {
+        // Get base stubs directory and append laravel-app subdirectory
+        return $this->getBaseStubPath() . '/laravel-app';
+    }
+
+    /**
+     * Get variables for stub template replacement.
+     *
+     * Returns an associative array of placeholder => value pairs used to
+     * replace placeholders in stub template files. This method combines
+     * common variables (from parent class) with Laravel-specific variables.
+     *
+     * Common variables (from AbstractAppType):
+     * - {{APP_NAME}}: Original application name
+     * - {{APP_NAME_NORMALIZED}}: Normalized directory/package name
+     * - {{APP_NAMESPACE}}: PascalCase namespace component
+     * - {{PACKAGE_NAME}}: Full Composer package name
+     * - {{DESCRIPTION}}: Application description
+     *
+     * Laravel-specific variables:
+     * - {{DATABASE_DRIVER}}: Selected database driver (mysql, pgsql, etc.)
+     * - {{LARAVEL_VERSION}}: Selected Laravel version (10, 11, 12)
+     *
+     * Example stub usage:
+     * ```json
+     * {
+     *   "name": "{{PACKAGE_NAME}}",
+     *   "description": "{{DESCRIPTION}}",
+     *   "require": {
+     *     "laravel/framework": "^{{LARAVEL_VERSION}}.0"
+     *   }
+     * }
+     * ```
+     *
+     * @param  array<string, mixed>  $config Configuration from collectConfiguration()
+     * @return array<string, string> Associative array of placeholder => value pairs
+     */
+    public function getStubVariables(array $config): array
+    {
+        // Get common variables from parent class
+        $common = $this->getCommonStubVariables($config);
+
+        // Merge with Laravel-specific variables
+        return array_merge($common, [
+            // Database driver for .env and config/database.php
+            '{{DATABASE_DRIVER}}' => $config['database'] ?? 'mysql',
+
+            // Laravel version for composer.json constraints
+            '{{LARAVEL_VERSION}}' => $config['laravel_version'] ?? '12',
+        ]);
+    }
+}
