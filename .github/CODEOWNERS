@@ -1,0 +1,164 @@
+# ============================================================================
+# CODEOWNERS - Mono CLI Tool
+# ============================================================================
+#
+# This file defines code ownership for the Mono CLI tool repository.
+# Code owners are automatically requested for review when someone opens
+# a pull request that modifies files they own.
+#
+# Syntax:
+#   pattern @username @org/team-name
+#
+# Patterns are matched in order - the last matching pattern takes precedence.
+#
+# Documentation:
+#   https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Global Ownership
+# ----------------------------------------------------------------------------
+# Default owners for everything in the repository unless a more specific
+# pattern matches below. These maintainers will be requested for review
+# on all pull requests.
+
+* @mono-php/maintainers
+
+# ----------------------------------------------------------------------------
+# Command Categories
+# ----------------------------------------------------------------------------
+# Each command category has specific owners who are experts in that domain.
+
+# Composer integration commands (require, update, composer)
+/src/Commands/Composer/ @mono-php/composer-team
+
+# Deployment commands (deploy, publish)
+/src/Commands/Deploy/ @mono-php/deploy-team
+
+# Development commands (dev, build)
+/src/Commands/Dev/ @mono-php/dev-team
+
+# Lifecycle commands (install, clean, cleanup)
+/src/Commands/Lifecycle/ @mono-php/maintainers
+
+# Scaffolding commands (create:app, create:package, make:workspace)
+/src/Commands/Make/ @mono-php/scaffolding-team
+
+# Quality commands (test, lint, format, typecheck, refactor, mutate)
+/src/Commands/Quality/ @mono-php/quality-team
+
+# Turborepo commands (turbo, run)
+/src/Commands/Turbo/ @mono-php/turbo-team
+
+# Utility commands (doctor, version)
+/src/Commands/Utility/ @mono-php/maintainers
+
+# Workspace commands (list-workspaces, info)
+/src/Commands/Workspace/ @mono-php/workspace-team
+
+# Base command class - critical for all commands
+/src/Commands/BaseCommand.php @mono-php/core-team
+
+# ----------------------------------------------------------------------------
+# Core Infrastructure
+# ----------------------------------------------------------------------------
+# Core application files that affect the entire CLI tool.
+
+# Main application class
+/src/Application.php @mono-php/core-team
+
+# Reusable traits and concerns
+/src/Concerns/ @mono-php/core-team
+
+# Support utilities and helpers
+/src/Support/ @mono-php/core-team
+
+# CLI entry point
+/bin/ @mono-php/core-team
+
+# ----------------------------------------------------------------------------
+# Testing Infrastructure
+# ----------------------------------------------------------------------------
+# Test files and testing configuration.
+
+# Test suite
+/tests/ @mono-php/quality-team
+
+# PHPUnit configuration
+/phpunit.xml @mono-php/quality-team
+
+# ----------------------------------------------------------------------------
+# Quality Tools Configuration
+# ----------------------------------------------------------------------------
+# Configuration files for code quality and analysis tools.
+
+# PHPStan static analysis configuration
+/phpstan.neon @mono-php/quality-team
+
+# Rector refactoring configuration
+/rector.php @mono-php/quality-team
+
+# Laravel Pint code style configuration
+/pint.json @mono-php/quality-team
+
+# Infection mutation testing configuration
+/infection.json5 @mono-php/quality-team
+
+# EditorConfig for consistent coding style
+/.editorconfig @mono-php/maintainers
+
+# ----------------------------------------------------------------------------
+# Dependency Management
+# ----------------------------------------------------------------------------
+# Composer and package management files.
+
+/composer.json @mono-php/maintainers
+/composer.lock @mono-php/maintainers
+
+# ----------------------------------------------------------------------------
+# GitHub Configuration
+# ----------------------------------------------------------------------------
+# GitHub-specific configuration files and workflows.
+
+# GitHub Actions workflows
+/.github/workflows/ @mono-php/ci-team
+
+# Issue and PR templates
+/.github/ISSUE_TEMPLATE/ @mono-php/maintainers
+/.github/PULL_REQUEST_TEMPLATE.md @mono-php/maintainers
+
+# Dependabot configuration
+/.github/dependabot.yml @mono-php/security-team
+
+# Other GitHub configs
+/.github/ @mono-php/maintainers
+
+# ----------------------------------------------------------------------------
+# Documentation
+# ----------------------------------------------------------------------------
+# All documentation files including README, guides, and inline docs.
+
+# Root documentation files
+/*.md @mono-php/docs-team
+
+# Documentation directory (if exists)
+/docs/ @mono-php/docs-team
+
+# Security policy
+/SECURITY.md @mono-php/security-team
+
+# Contributing guidelines
+/CONTRIBUTING.md @mono-php/docs-team
+
+# Changelog
+/CHANGELOG.md @mono-php/maintainers
+
+# ----------------------------------------------------------------------------
+# Build and Distribution
+# ----------------------------------------------------------------------------
+# Files related to building and distributing the CLI tool.
+
+# Git configuration
+/.gitignore @mono-php/maintainers
+/.gitattributes @mono-php/maintainers

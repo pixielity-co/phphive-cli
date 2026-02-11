@@ -1,0 +1,303 @@
+# ============================================================================
+# Continuous Integration Workflow - Mono CLI Tool
+# ============================================================================
+#
+# This workflow runs automated tests and quality checks on every push and
+# pull request to ensure code quality and prevent regressions.
+#
+# Jobs:
+#   1. Tests - Run PHPUnit test suite across multiple PHP versions
+#   2. Code Quality - Run linting, static analysis, and refactoring checks
+#   3. Security - Check for security vulnerabilities in dependencies
+#
+# Triggers:
+#   - Push to main or develop branches
+#   - Pull requests targeting main or develop branches
+#   - Manual workflow dispatch
+#
+# ============================================================================
+
+name: CI
+
+# ----------------------------------------------------------------------------
+# Workflow Triggers
+# ----------------------------------------------------------------------------
+on:
+  # Run on push to main branches
+  push:
+    branches:
+      - main
+      - develop
+    # Don't run on tag pushes
+    tags-ignore:
+      - "**"
+
+  # Run on pull requests targeting main branches
+  pull_request:
+    branches:
+      - main
+      - develop
+    # Run on all PR types
+    types: [opened, synchronize, reopened]
+
+  # Allow manual workflow dispatch
+  workflow_dispatch:
+
+# ----------------------------------------------------------------------------
+# Concurrency Control
+# ----------------------------------------------------------------------------
+# Cancel in-progress runs when a new run is triggered
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# ----------------------------------------------------------------------------
+# Environment Variables
+# ----------------------------------------------------------------------------
+env:
+  # Composer configuration
+  COMPOSER_NO_INTERACTION: 1
+  COMPOSER_PREFER_STABLE: 1
+  COMPOSER_OPTIMIZE_AUTOLOADER: 1
+
+# ----------------------------------------------------------------------------
+# Jobs
+# ----------------------------------------------------------------------------
+jobs:
+  # --------------------------------------------------------------------------
+  # Test Suite
+  # --------------------------------------------------------------------------
+  # Runs PHPUnit tests across multiple PHP versions to ensure compatibility
+  tests:
+    name: Tests (PHP ${{ matrix.php }})
+    runs-on: ${{ matrix.os }}
+
+    # Test matrix - run tests on multiple PHP versions and operating systems
+    strategy:
+      # Don't cancel other matrix jobs if one fails
+      fail-fast: false
+
+      matrix:
+        # Operating systems to test on
+        os: [ubuntu-latest]
+
+        # PHP versions to test (8.3 is minimum, 8.5 is latest)
+        php: ["8.3", "8.4", "8.5"]
+
+        # Dependency versions to test
+        dependencies: [highest]
+
+        # Include additional test configurations
+        include:
+          # Test with lowest supported dependencies on PHP 8.3
+          - php: "8.3"
+            os: ubuntu-latest
+            dependencies: lowest
+
+    steps:
+      # ----------------------------------------------------------------------
+      # Checkout Code
+      # ----------------------------------------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history for better error messages
+          fetch-depth: 0
+
+      # ----------------------------------------------------------------------
+      # Setup PHP Environment
+      # ----------------------------------------------------------------------
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          # PHP version from matrix
+          php-version: ${{ matrix.php }}
+
+          # Required PHP extensions
+          extensions: mbstring, json, tokenizer, xml, ctype, iconv
+
+          # Disable coverage for faster tests (enable in separate job if needed)
+          coverage: none
+
+          # PHP.ini configuration
+          ini-values: error_reporting=E_ALL, display_errors=On, memory_limit=512M
+
+          # Tools to install
+          tools: composer:v2
+
+      # ----------------------------------------------------------------------
+      # Cache Composer Dependencies
+      # ----------------------------------------------------------------------
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php-${{ matrix.php }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php-${{ matrix.php }}-composer-
+            ${{ runner.os }}-php-
+
+      # ----------------------------------------------------------------------
+      # Install Dependencies
+      # ----------------------------------------------------------------------
+      - name: Install dependencies (highest)
+        if: matrix.dependencies == 'highest'
+        run: composer install --prefer-dist --no-progress --no-interaction --no-suggest
+
+      - name: Install dependencies (lowest)
+        if: matrix.dependencies == 'lowest'
+        run: composer update --prefer-dist --no-progress --no-interaction --no-suggest --prefer-lowest --prefer-stable
+
+      # ----------------------------------------------------------------------
+      # Validate Composer Files
+      # ----------------------------------------------------------------------
+      - name: Validate composer.json and composer.lock
+        run: composer validate --strict
+
+      # ----------------------------------------------------------------------
+      # Run Test Suite
+      # ----------------------------------------------------------------------
+      - name: Run PHPUnit tests
+        run: composer test
+
+      # ----------------------------------------------------------------------
+      # Upload Test Results
+      # ----------------------------------------------------------------------
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-php-${{ matrix.php }}-${{ matrix.dependencies }}
+          path: var/log/
+          retention-days: 7
+
+  # --------------------------------------------------------------------------
+  # Code Quality Checks
+  # --------------------------------------------------------------------------
+  # Runs linting, static analysis, and refactoring checks
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      # ----------------------------------------------------------------------
+      # Checkout Code
+      # ----------------------------------------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ----------------------------------------------------------------------
+      # Setup PHP Environment
+      # ----------------------------------------------------------------------
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          # Use PHP 8.3 for quality checks (minimum supported version)
+          php-version: "8.3"
+
+          # Required PHP extensions
+          extensions: mbstring, json, tokenizer, xml, ctype, iconv
+
+          # Disable coverage
+          coverage: none
+
+          # PHP.ini configuration
+          ini-values: error_reporting=E_ALL, display_errors=On, memory_limit=2G
+
+          # Tools to install
+          tools: composer:v2
+
+      # ----------------------------------------------------------------------
+      # Cache Composer Dependencies
+      # ----------------------------------------------------------------------
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php-8.3-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php-8.3-composer-
+            ${{ runner.os }}-php-
+
+      # ----------------------------------------------------------------------
+      # Install Dependencies
+      # ----------------------------------------------------------------------
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction --no-suggest
+
+      # ----------------------------------------------------------------------
+      # Code Style Check (Laravel Pint)
+      # ----------------------------------------------------------------------
+      - name: Check code style with Pint
+        run: composer lint
+
+      # ----------------------------------------------------------------------
+      # Static Analysis (PHPStan)
+      # ----------------------------------------------------------------------
+      - name: Run PHPStan static analysis
+        run: composer typecheck
+
+      # ----------------------------------------------------------------------
+      # Refactoring Check (Rector)
+      # ----------------------------------------------------------------------
+      - name: Check refactoring opportunities with Rector
+        run: composer refactor:dry
+
+      # ----------------------------------------------------------------------
+      # Upload Quality Reports
+      # ----------------------------------------------------------------------
+      - name: Upload quality reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-reports
+          path: build/
+          retention-days: 7
+
+  # --------------------------------------------------------------------------
+  # Security Audit
+  # --------------------------------------------------------------------------
+  # Checks for known security vulnerabilities in dependencies
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      # ----------------------------------------------------------------------
+      # Checkout Code
+      # ----------------------------------------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ----------------------------------------------------------------------
+      # Setup PHP Environment
+      # ----------------------------------------------------------------------
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, json
+          coverage: none
+          tools: composer:v2
+
+      # ----------------------------------------------------------------------
+      # Security Audit
+      # ----------------------------------------------------------------------
+      - name: Run Composer security audit
+        run: composer audit --format=plain
+        continue-on-error: true
+
+      # ----------------------------------------------------------------------
+      # Check for Outdated Dependencies
+      # ----------------------------------------------------------------------
+      - name: Check for outdated dependencies
+        run: composer outdated --direct --strict
+        continue-on-error: true
+# ----------------------------------------------------------------------------
+# Workflow Status
+# ----------------------------------------------------------------------------
+# All jobs must pass for the workflow to be considered successful.
+# This ensures that code merged to main branches meets all quality standards.
+# ----------------------------------------------------------------------------

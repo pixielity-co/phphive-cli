@@ -1,0 +1,112 @@
+# ============================================================================
+# Funding Configuration - Mono CLI Tool
+# ============================================================================
+#
+# This file configures funding options displayed on the repository's
+# "Sponsor this project" button. Users can support the development of
+# Mono CLI through various platforms.
+#
+# Documentation:
+#   https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+#
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# GitHub Sponsors
+# ----------------------------------------------------------------------------
+# Support through GitHub Sponsors (preferred method)
+# Supports both individual accounts and organizations
+# github: [username1, username2]
+
+# github: [mono-php]
+
+# ----------------------------------------------------------------------------
+# Patreon
+# ----------------------------------------------------------------------------
+# Support through Patreon for recurring monthly contributions
+# patreon: username
+
+# patreon: mono-php
+
+# ----------------------------------------------------------------------------
+# Open Collective
+# ----------------------------------------------------------------------------
+# Support through Open Collective for transparent funding
+# open_collective: project-name
+
+# open_collective: mono-php
+
+# ----------------------------------------------------------------------------
+# Ko-fi
+# ----------------------------------------------------------------------------
+# Support through Ko-fi for one-time or monthly contributions
+# ko_fi: username
+
+# ko_fi: mono-php
+
+# ----------------------------------------------------------------------------
+# Tidelift
+# ----------------------------------------------------------------------------
+# Support through Tidelift for enterprise subscriptions
+# tidelift: platform-name/package-name
+
+# tidelift: packagist/mono-php/cli
+
+# ----------------------------------------------------------------------------
+# Community Bridge
+# ----------------------------------------------------------------------------
+# Support through Community Bridge (Linux Foundation)
+# community_bridge: project-name
+
+# community_bridge: mono-php
+
+# ----------------------------------------------------------------------------
+# Liberapay
+# ----------------------------------------------------------------------------
+# Support through Liberapay for recurring donations
+# liberapay: username
+
+# liberapay: mono-php
+
+# ----------------------------------------------------------------------------
+# IssueHunt
+# ----------------------------------------------------------------------------
+# Support through IssueHunt for issue-based funding
+# issuehunt: username
+
+# issuehunt: mono-php
+
+# ----------------------------------------------------------------------------
+# Otechie
+# ----------------------------------------------------------------------------
+# Support through Otechie for paid support and consulting
+# otechie: username
+
+# otechie: mono-php
+
+# ----------------------------------------------------------------------------
+# LFX Crowdfunding
+# ----------------------------------------------------------------------------
+# Support through LFX Crowdfunding (Linux Foundation)
+# lfx_crowdfunding: project-name
+
+# lfx_crowdfunding: mono-php
+
+# ----------------------------------------------------------------------------
+# Custom Funding URLs
+# ----------------------------------------------------------------------------
+# Custom funding URLs for other platforms or direct donations
+# Supports up to 4 custom URLs
+# custom: ['https://example.com/donate', 'https://example.com/sponsor']
+
+# custom: ['https://mono-php.dev/sponsor']
+
+# ----------------------------------------------------------------------------
+# Notes
+# ----------------------------------------------------------------------------
+# - Uncomment and configure the platforms you want to use
+# - At least one funding platform must be configured for the button to appear
+# - GitHub Sponsors is the recommended primary funding method
+# - Multiple platforms can be enabled simultaneously
+# - Custom URLs are useful for direct donations or other platforms
+# ----------------------------------------------------------------------------

@@ -1,0 +1,66 @@
+<svg width="1200" height="300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background gradient -->
+  <defs>
+    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="text-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e0e7ff;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="300" fill="url(#bg-gradient)"/>
+
+  <!-- Grid pattern overlay -->
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="300" fill="url(#grid)"/>
+
+  <!-- Terminal icon -->
+  <g transform="translate(200, 80)">
+    <rect x="0" y="0" width="120" height="90" rx="8" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
+    <circle cx="15" cy="15" r="4" fill="#ff5f56"/>
+    <circle cx="30" cy="15" r="4" fill="#ffbd2e"/>
+    <circle cx="45" cy="15" r="4" fill="#27c93f"/>
+    <text x="20" y="50" font-family="'Courier New', monospace" font-size="24" fill="#ffffff" font-weight="bold">$_</text>
+    <rect x="45" y="32" width="3" height="20" fill="#ffffff" opacity="0.8">
+      <animate attributeName="opacity" values="0.8;0;0.8" dur="1s" repeatCount="indefinite"/>
+    </rect>
+  </g>
+
+  <!-- Main title -->
+  <text x="360" y="140" font-family="'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="72" font-weight="bold" fill="url(#text-gradient)">
+    Mono CLI
+  </text>
+
+  <!-- Subtitle -->
+  <text x="360" y="180" font-family="'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="24" fill="rgba(255,255,255,0.9)">
+    Powerful CLI for PHP Monorepos
+  </text>
+
+  <!-- Feature badges -->
+  <g transform="translate(360, 210)">
+    <!-- Turborepo badge -->
+    <rect x="0" y="0" width="110" height="28" rx="14" fill="rgba(255,255,255,0.15)"/>
+    <text x="55" y="19" font-family="'SF Pro Text', -apple-system, sans-serif" font-size="13" fill="#ffffff" text-anchor="middle" font-weight="500">⚡ Turborepo</text>
+
+    <!-- PHP badge -->
+    <rect x="120" y="0" width="90" height="28" rx="14" fill="rgba(255,255,255,0.15)"/>
+    <text x="165" y="19" font-family="'SF Pro Text', -apple-system, sans-serif" font-size="13" fill="#ffffff" text-anchor="middle" font-weight="500">🐘 PHP 8.3+</text>
+
+    <!-- Quality badge -->
+    <rect x="220" y="0" width="100" height="28" rx="14" fill="rgba(255,255,255,0.15)"/>
+    <text x="270" y="19" font-family="'SF Pro Text', -apple-system, sans-serif" font-size="13" fill="#ffffff" text-anchor="middle" font-weight="500">✨ Quality</text>
+  </g>
+
+  <!-- Decorative elements -->
+  <circle cx="1050" cy="80" r="60" fill="rgba(255,255,255,0.05)"/>
+  <circle cx="1100" cy="220" r="40" fill="rgba(255,255,255,0.03)"/>
+  <circle cx="150" cy="250" r="30" fill="rgba(255,255,255,0.04)"/>
+</svg>

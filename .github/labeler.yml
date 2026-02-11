@@ -1,0 +1,252 @@
+# ============================================================================
+# Automatic PR Labeling Configuration - Mono CLI Tool
+# ============================================================================
+#
+# This file configures automatic labeling for pull requests based on which
+# files are changed. Labels help organize and categorize PRs for easier
+# review and tracking.
+#
+# The labeler action runs on every PR and applies labels based on the
+# patterns defined below. Multiple labels can be applied to a single PR.
+#
+# Documentation:
+#   https://github.com/actions/labeler
+#
+# Syntax:
+#   "label-name":
+#     - changed-files:
+#         - any-glob-to-any-file: "pattern/**"
+#
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Command Categories
+# ----------------------------------------------------------------------------
+# Labels for changes to specific command categories
+
+"commands: composer":
+  - changed-files:
+      - any-glob-to-any-file: "src/Commands/Composer/**"
+
+"commands: deploy":
+  - changed-files:
+      - any-glob-to-any-file: "src/Commands/Deploy/**"
+
+"commands: dev":
+  - changed-files:
+      - any-glob-to-any-file: "src/Commands/Dev/**"
+
+"commands: lifecycle":
+  - changed-files:
+      - any-glob-to-any-file: "src/Commands/Lifecycle/**"
+
+"commands: make":
+  - changed-files:
+      - any-glob-to-any-file: "src/Commands/Make/**"
+
+"commands: quality":
+  - changed-files:
+      - any-glob-to-any-file: "src/Commands/Quality/**"
+
+"commands: turbo":
+  - changed-files:
+      - any-glob-to-any-file: "src/Commands/Turbo/**"
+
+"commands: utility":
+  - changed-files:
+      - any-glob-to-any-file: "src/Commands/Utility/**"
+
+"commands: workspace":
+  - changed-files:
+      - any-glob-to-any-file: "src/Commands/Workspace/**"
+
+# ----------------------------------------------------------------------------
+# Core Components
+# ----------------------------------------------------------------------------
+# Labels for changes to core infrastructure
+
+"core: application":
+  - changed-files:
+      - any-glob-to-any-file: "src/Application.php"
+
+"core: base-command":
+  - changed-files:
+      - any-glob-to-any-file: "src/Commands/BaseCommand.php"
+
+"core: concerns":
+  - changed-files:
+      - any-glob-to-any-file: "src/Concerns/**"
+
+"core: support":
+  - changed-files:
+      - any-glob-to-any-file: "src/Support/**"
+
+"core: entry-point":
+  - changed-files:
+      - any-glob-to-any-file: "bin/**"
+
+# ----------------------------------------------------------------------------
+# Testing
+# ----------------------------------------------------------------------------
+# Labels for test-related changes
+
+"tests: unit":
+  - changed-files:
+      - any-glob-to-any-file: "tests/Unit/**"
+
+"tests: feature":
+  - changed-files:
+      - any-glob-to-any-file: "tests/Feature/**"
+
+"tests: fixtures":
+  - changed-files:
+      - any-glob-to-any-file: "tests/Fixtures/**"
+
+"tests: infrastructure":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "tests/TestCase.php"
+          - "phpunit.xml"
+
+# ----------------------------------------------------------------------------
+# Quality Tools Configuration
+# ----------------------------------------------------------------------------
+# Labels for changes to quality tool configurations
+
+"quality: phpstan":
+  - changed-files:
+      - any-glob-to-any-file: "phpstan.neon"
+
+"quality: rector":
+  - changed-files:
+      - any-glob-to-any-file: "rector.php"
+
+"quality: pint":
+  - changed-files:
+      - any-glob-to-any-file: "pint.json"
+
+"quality: infection":
+  - changed-files:
+      - any-glob-to-any-file: "infection.json5"
+
+"quality: editorconfig":
+  - changed-files:
+      - any-glob-to-any-file: ".editorconfig"
+
+# ----------------------------------------------------------------------------
+# Documentation
+# ----------------------------------------------------------------------------
+# Labels for documentation changes
+
+"documentation":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "docs/**"
+
+"documentation: readme":
+  - changed-files:
+      - any-glob-to-any-file: "README.md"
+
+"documentation: changelog":
+  - changed-files:
+      - any-glob-to-any-file: "CHANGELOG.md"
+
+"documentation: contributing":
+  - changed-files:
+      - any-glob-to-any-file: "CONTRIBUTING.md"
+
+"documentation: security":
+  - changed-files:
+      - any-glob-to-any-file: "SECURITY.md"
+
+# ----------------------------------------------------------------------------
+# Dependencies
+# ----------------------------------------------------------------------------
+# Labels for dependency changes
+
+"dependencies: composer":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "composer.json"
+          - "composer.lock"
+
+"dependencies: npm":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "package.json"
+          - "pnpm-lock.yaml"
+
+# ----------------------------------------------------------------------------
+# CI/CD
+# ----------------------------------------------------------------------------
+# Labels for CI/CD and GitHub configuration changes
+
+"ci/cd: workflows":
+  - changed-files:
+      - any-glob-to-any-file: ".github/workflows/**"
+
+"ci/cd: actions":
+  - changed-files:
+      - any-glob-to-any-file: ".github/workflows/*.yml"
+
+"github: templates":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/ISSUE_TEMPLATE/**"
+          - ".github/PULL_REQUEST_TEMPLATE.md"
+
+"github: config":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/dependabot.yml"
+          - ".github/labeler.yml"
+          - ".github/CODEOWNERS"
+          - ".github/FUNDING.yml"
+
+# ----------------------------------------------------------------------------
+# Configuration Files
+# ----------------------------------------------------------------------------
+# Labels for various configuration file changes
+
+"config: composer":
+  - changed-files:
+      - any-glob-to-any-file: "composer.json"
+
+"config: git":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".gitignore"
+          - ".gitattributes"
+
+"config: turbo":
+  - changed-files:
+      - any-glob-to-any-file: "turbo.json"
+
+# ----------------------------------------------------------------------------
+# Build and Distribution
+# ----------------------------------------------------------------------------
+# Labels for build-related changes
+
+"build":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "build/**"
+          - "var/**"
+
+# ----------------------------------------------------------------------------
+# Security
+# ----------------------------------------------------------------------------
+# Labels for security-related changes
+
+"security":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "SECURITY.md"
+          - ".github/dependabot.yml"
+# ----------------------------------------------------------------------------
+# Breaking Changes
+# ----------------------------------------------------------------------------
+# Note: This label should be manually applied when a PR contains breaking changes
+# as it requires human judgment to determine if changes are breaking.
+# ----------------------------------------------------------------------------

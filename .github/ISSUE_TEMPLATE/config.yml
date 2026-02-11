@@ -1,0 +1,62 @@
+# ============================================================================
+# Issue Template Configuration - Mono CLI Tool
+# ============================================================================
+#
+# This file configures the issue template chooser and provides links to
+# additional resources for users before they create an issue.
+#
+# ============================================================================
+
+# Disable blank issues - users must choose a template
+blank_issues_enabled: false
+
+# ----------------------------------------------------------------------------
+# Contact Links
+# ----------------------------------------------------------------------------
+# Additional resources and support channels displayed in the issue chooser
+
+contact_links:
+  # --------------------------------------------------------------------------
+  # GitHub Discussions
+  # --------------------------------------------------------------------------
+  - name: 💬 Discussions & Questions
+    url: https://github.com/mono-php/cli/discussions
+    about: |
+      Ask questions, share ideas, and discuss with the community.
+      Perfect for general questions, feature discussions, and getting help.
+
+  # --------------------------------------------------------------------------
+  # Documentation
+  # --------------------------------------------------------------------------
+  - name: 📚 Documentation
+    url: https://github.com/mono-php/cli#readme
+    about: |
+      Read the official documentation, guides, and API reference.
+      Check here first before opening an issue.
+
+  # --------------------------------------------------------------------------
+  # Security Issues
+  # --------------------------------------------------------------------------
+  - name: 🔒 Security Vulnerability
+    url: https://github.com/mono-php/cli/security/advisories/new
+    about: |
+      Report a security vulnerability privately.
+      Please do not open public issues for security concerns.
+
+  # --------------------------------------------------------------------------
+  # Contributing Guide
+  # --------------------------------------------------------------------------
+  - name: 🤝 Contributing Guide
+    url: https://github.com/mono-php/cli/blob/main/CONTRIBUTING.md
+    about: |
+      Learn how to contribute to Mono CLI.
+      Read this before submitting pull requests.
+
+  # --------------------------------------------------------------------------
+  # Changelog
+  # --------------------------------------------------------------------------
+  - name: 📝 Changelog
+    url: https://github.com/mono-php/cli/blob/main/CHANGELOG.md
+    about: |
+      View release notes and version history.
+      Check if your issue is already fixed in a newer version.

@@ -1,0 +1,257 @@
+# ============================================================================
+# Feature Request Template - Mono CLI Tool
+# ============================================================================
+#
+# This template helps users suggest new features or enhancements in a
+# structured way, ensuring we understand the use case and proposed solution.
+#
+# ============================================================================
+
+name: 🚀 Feature Request
+description: Suggest a new feature or enhancement for Mono CLI
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+assignees: []
+
+body:
+  # --------------------------------------------------------------------------
+  # Introduction
+  # --------------------------------------------------------------------------
+  - type: markdown
+    attributes:
+      value: |
+        ## Thanks for suggesting a feature! 🚀
+
+        Please fill out the form below to help us understand your feature request.
+        The more details you provide, the better we can evaluate and implement it.
+
+        **Before submitting:**
+        - Search existing issues and discussions to avoid duplicates
+        - Check if the feature already exists in the latest version
+        - Consider if this fits the scope of Mono CLI
+
+  # --------------------------------------------------------------------------
+  # Feature Category
+  # --------------------------------------------------------------------------
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature Category
+      description: What category does this feature belong to?
+      options:
+        - New Command
+        - Command Enhancement
+        - Composer Integration
+        - Turborepo Integration
+        - Quality Tools
+        - Workspace Management
+        - Developer Experience
+        - Performance
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  # --------------------------------------------------------------------------
+  # Problem Statement
+  # --------------------------------------------------------------------------
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: |
+        Is your feature request related to a problem? Please describe the problem
+        you're trying to solve or the pain point you're experiencing.
+      placeholder: |
+        Example: I'm always frustrated when I need to run tests in multiple packages
+        separately. It's time-consuming and error-prone to remember which packages
+        need testing.
+    validations:
+      required: true
+
+  # --------------------------------------------------------------------------
+  # Use Case
+  # --------------------------------------------------------------------------
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: Describe the specific use case or scenario where this feature would be helpful.
+      placeholder: |
+        Example: As a developer working on a monorepo with 10+ packages, I want to
+        run tests across all packages that have changes, so I can quickly validate
+        my work without running the entire test suite.
+    validations:
+      required: true
+
+  # --------------------------------------------------------------------------
+  # Proposed Solution
+  # --------------------------------------------------------------------------
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: |
+        Describe the solution you'd like. Be as specific as possible about how
+        the feature should work.
+      placeholder: |
+        Example: Add a new command `mono test:changed` that:
+        1. Detects which packages have uncommitted changes
+        2. Runs tests only in those packages
+        3. Shows a summary of results
+
+        Usage:
+        ```bash
+        mono test:changed
+        mono test:changed --since=main
+        ```
+    validations:
+      required: true
+
+  # --------------------------------------------------------------------------
+  # Command Example
+  # --------------------------------------------------------------------------
+  - type: textarea
+    id: command-example
+    attributes:
+      label: Command Example (if applicable)
+      description: If this is a new command or command enhancement, show example usage.
+      placeholder: |
+        ```bash
+        # Basic usage
+        mono your-command
+
+        # With options
+        mono your-command --option value
+
+        # Expected output
+        ✓ Command executed successfully
+        ```
+      render: bash
+
+  # --------------------------------------------------------------------------
+  # Alternatives Considered
+  # --------------------------------------------------------------------------
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: |
+        Describe alternative solutions or features you've considered.
+        Why is your proposed solution better?
+      placeholder: |
+        Example:
+        - Manually running tests in each package (too slow)
+        - Using a shell script (not portable, hard to maintain)
+        - Using Turborepo's --filter (requires knowing package names)
+
+  # --------------------------------------------------------------------------
+  # Benefits
+  # --------------------------------------------------------------------------
+  - type: textarea
+    id: benefits
+    attributes:
+      label: Benefits
+      description: What are the benefits of implementing this feature?
+      placeholder: |
+        - Saves time by running only necessary tests
+        - Reduces CI/CD execution time
+        - Improves developer experience
+        - Makes monorepo management easier
+    validations:
+      required: true
+
+  # --------------------------------------------------------------------------
+  # Potential Drawbacks
+  # --------------------------------------------------------------------------
+  - type: textarea
+    id: drawbacks
+    attributes:
+      label: Potential Drawbacks
+      description: Are there any potential drawbacks or concerns with this feature?
+      placeholder: |
+        Example:
+        - May add complexity to the CLI
+        - Requires Git integration
+        - Could be confusing for new users
+
+  # --------------------------------------------------------------------------
+  # Implementation Ideas
+  # --------------------------------------------------------------------------
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation Ideas
+      description: |
+        If you have ideas about how to implement this feature, share them here.
+        This is optional but helpful for contributors.
+      placeholder: |
+        Example:
+        - Use Symfony Process to run Git commands
+        - Parse git diff to detect changed files
+        - Map files to packages using composer.json locations
+        - Use existing test command infrastructure
+
+  # --------------------------------------------------------------------------
+  # Related Features
+  # --------------------------------------------------------------------------
+  - type: textarea
+    id: related
+    attributes:
+      label: Related Features or Issues
+      description: Link to related features, issues, or discussions.
+      placeholder: |
+        - Related to #123
+        - Similar to feature in tool X
+        - Discussed in discussion #456
+
+  # --------------------------------------------------------------------------
+  # Additional Context
+  # --------------------------------------------------------------------------
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: |
+        Add any other context, screenshots, mockups, or examples about the
+        feature request here.
+      placeholder: |
+        - Screenshots or mockups
+        - Examples from other tools
+        - Links to relevant documentation
+        - Code snippets
+
+  # --------------------------------------------------------------------------
+  # Willingness to Contribute
+  # --------------------------------------------------------------------------
+  - type: dropdown
+    id: contribute
+    attributes:
+      label: Willingness to Contribute
+      description: Would you be willing to contribute this feature?
+      options:
+        - "Yes, I can implement this feature"
+        - "Yes, I can help with testing"
+        - "Yes, I can help with documentation"
+        - "Maybe, with guidance"
+        - "No, but I can provide feedback"
+    validations:
+      required: true
+
+  # --------------------------------------------------------------------------
+  # Checklist
+  # --------------------------------------------------------------------------
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Please confirm the following before submitting.
+      options:
+        - label: I have searched existing issues and discussions to avoid duplicates
+          required: true
+        - label: This feature fits the scope and goals of Mono CLI
+          required: true
+        - label: I have provided a clear use case and benefits
+          required: true
+        - label: I have considered alternatives and potential drawbacks
+          required: true

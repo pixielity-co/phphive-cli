@@ -1,0 +1,235 @@
+# ============================================================================
+# Bug Report Template - Mono CLI Tool
+# ============================================================================
+#
+# This template helps users report bugs in a structured way, ensuring we
+# have all the information needed to reproduce and fix the issue.
+#
+# ============================================================================
+
+name: 🐛 Bug Report
+description: Report a bug or unexpected behavior in Mono CLI
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+assignees: []
+
+body:
+  # --------------------------------------------------------------------------
+  # Introduction
+  # --------------------------------------------------------------------------
+  - type: markdown
+    attributes:
+      value: |
+        ## Thanks for reporting a bug! 🐛
+
+        Please fill out the form below to help us understand and fix the issue.
+        The more details you provide, the faster we can resolve the problem.
+
+        **Before submitting:**
+        - Search existing issues to avoid duplicates
+        - Make sure you're using the latest version
+        - Check the documentation: https://github.com/mono-php/cli
+
+  # --------------------------------------------------------------------------
+  # Bug Description
+  # --------------------------------------------------------------------------
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: |
+        Example: When running `mono test`, the command fails with an error about missing PHPUnit configuration.
+    validations:
+      required: true
+
+  # --------------------------------------------------------------------------
+  # Steps to Reproduce
+  # --------------------------------------------------------------------------
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed steps to reproduce the behavior.
+      placeholder: |
+        1. Install Mono CLI with `composer install`
+        2. Run command `mono test`
+        3. See error message: "PHPUnit configuration not found"
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  # --------------------------------------------------------------------------
+  # Expected Behavior
+  # --------------------------------------------------------------------------
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: |
+        Example: The test suite should run successfully and display test results.
+    validations:
+      required: true
+
+  # --------------------------------------------------------------------------
+  # Actual Behavior
+  # --------------------------------------------------------------------------
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened? Include error messages if applicable.
+      placeholder: |
+        Example: The command fails with error:
+        ```
+        Error: PHPUnit configuration file not found at /path/to/phpunit.xml
+        ```
+    validations:
+      required: true
+
+  # --------------------------------------------------------------------------
+  # Command Output
+  # --------------------------------------------------------------------------
+  - type: textarea
+    id: output
+    attributes:
+      label: Command Output
+      description: Full output of the command that failed (if applicable).
+      placeholder: |
+        Paste the complete terminal output here, including the command you ran.
+      render: shell
+
+  # --------------------------------------------------------------------------
+  # Environment Information
+  # --------------------------------------------------------------------------
+  - type: input
+    id: cli-version
+    attributes:
+      label: Mono CLI Version
+      description: What version of Mono CLI are you using? Run `mono version` to find out.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: php-version
+    attributes:
+      label: PHP Version
+      description: What version of PHP are you running? Run `php -v` to find out.
+      placeholder: "8.3.0"
+    validations:
+      required: true
+
+  - type: input
+    id: composer-version
+    attributes:
+      label: Composer Version
+      description: What version of Composer are you using? Run `composer --version` to find out.
+      placeholder: "2.7.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      description: What operating system are you using?
+      options:
+        - macOS
+        - Linux (Ubuntu)
+        - Linux (Debian)
+        - Linux (Fedora)
+        - Linux (Arch)
+        - Linux (Other)
+        - Windows (WSL)
+        - Windows (Native)
+        - Other
+    validations:
+      required: true
+
+  # --------------------------------------------------------------------------
+  # Workspace Configuration
+  # --------------------------------------------------------------------------
+  - type: textarea
+    id: workspace-info
+    attributes:
+      label: Workspace Information
+      description: Information about your monorepo workspace (if applicable).
+      placeholder: |
+        - Number of packages: 5
+        - Number of apps: 2
+        - Using Turborepo: Yes
+        - Custom turbo.json: Yes
+      render: markdown
+
+  # --------------------------------------------------------------------------
+  # Configuration Files
+  # --------------------------------------------------------------------------
+  - type: textarea
+    id: config-files
+    attributes:
+      label: Relevant Configuration Files
+      description: Share relevant configuration files (composer.json, turbo.json, etc.).
+      placeholder: |
+        ```json
+        // composer.json
+        {
+          "name": "my-project/monorepo",
+          "require": {
+            "mono-php/cli": "^1.0"
+          }
+        }
+        ```
+      render: json
+
+  # --------------------------------------------------------------------------
+  # Additional Context
+  # --------------------------------------------------------------------------
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: |
+        Add any other context about the problem here:
+        - Screenshots or screen recordings
+        - Related issues or PRs
+        - Workarounds you've tried
+        - When the issue started occurring
+      placeholder: |
+        - This started happening after upgrading from version 0.9.0
+        - Workaround: Running `composer install` in each package individually works
+        - Related to #123
+
+  # --------------------------------------------------------------------------
+  # Possible Solution
+  # --------------------------------------------------------------------------
+  - type: textarea
+    id: solution
+    attributes:
+      label: Possible Solution
+      description: If you have an idea of how to fix this bug, please share it here.
+      placeholder: |
+        Example: The issue might be caused by the PHPUnit configuration path being hardcoded.
+        It should check multiple possible locations.
+
+  # --------------------------------------------------------------------------
+  # Checklist
+  # --------------------------------------------------------------------------
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Please confirm the following before submitting.
+      options:
+        - label: I have searched existing issues to avoid duplicates
+          required: true
+        - label: I am using the latest version of Mono CLI
+          required: true
+        - label: I have included all relevant information above
+          required: true
+        - label: I have provided steps to reproduce the issue
+          required: true
