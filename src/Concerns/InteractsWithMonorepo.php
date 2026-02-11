@@ -62,7 +62,7 @@ trait InteractsWithMonorepo
      *
      * The monorepo root is identified by the presence of both turbo.json
      * and pnpm-workspace.yaml files. This method searches upward from the
-     * CLI directory until it finds these marker files.
+     * current working directory until it finds these marker files.
      *
      * The result is cached statically to avoid repeated filesystem traversal.
      *
@@ -80,8 +80,12 @@ trait InteractsWithMonorepo
             return $root;
         }
 
-        // Start from CLI directory (two levels up from src/Concerns)
-        $current = dirname(__DIR__, 2);
+        // Start from current working directory
+        $current = getcwd();
+
+        if ($current === false) {
+            throw new RuntimeException('Could not determine current working directory');
+        }
 
         // Traverse upward until we find monorepo markers or reach filesystem root
         while ($current !== '/') {

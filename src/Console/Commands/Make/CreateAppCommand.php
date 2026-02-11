@@ -21,6 +21,7 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Process\Process;
 
 /**
  * Create App Command.
@@ -288,13 +289,15 @@ final class CreateAppCommand extends BaseCommand
      */
     private function executeCommand(string $command, string $cwd): int
     {
-        // Change to the working directory and execute the command
-        $fullCommand = "cd {$cwd} && {$command}";
+        // Use Symfony Process to execute command in specific directory
+        $process = Process::fromShellCommandline($command, $cwd, null, null, null);
 
-        // Execute and capture exit code
-        passthru($fullCommand, $exitCode);
+        // Run the process and display output in real-time
+        $process->run(function ($type, $buffer) {
+            echo $buffer;
+        });
 
-        return $exitCode;
+        return $process->getExitCode() ?? 1;
     }
 
     /**

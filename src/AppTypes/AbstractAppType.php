@@ -109,7 +109,7 @@ abstract class AbstractAppType implements AppTypeInterface
         return text(
             label: $label,
             placeholder: $placeholder,
-            default: $default,
+            default: $default ?? '',
             required: $required
         );
     }

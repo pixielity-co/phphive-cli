@@ -99,70 +99,73 @@ class SkeletonAppType extends AbstractAppType
      * @return array<string, mixed> Configuration array with all collected settings
      */
     public function collectConfiguration(InputInterface $input, OutputInterface $output): array
-    {
-        // Store input/output for use in helper methods
-        $this->input = $input;
-        $this->output = $output;
+        {
+            // Store input/output for use in helper methods
+            $this->input = $input;
+            $this->output = $output;
 
-        // Initialize configuration array
-        $config = [];
+            // Initialize configuration array
+            $config = [];
 
-        // =====================================================================
-        // BASIC INFORMATION
-        // =====================================================================
+            // Check if running in non-interactive mode
+            $isInteractive = $input->isInteractive();
 
-        // Application name - used for directory name, package name, and namespace
-        $config['name'] = $this->askText(
-            label: 'Application name',
-            placeholder: 'my-app',
-            required: true
-        );
+            // =====================================================================
+            // BASIC INFORMATION
+            // =====================================================================
 
-        // Application description - used in composer.json and documentation
-        $config['description'] = $this->askText(
-            label: 'Application description',
-            placeholder: 'A PHP application',
-            required: false
-        );
+            // Application name - used for directory name, package name, and namespace
+            $config['name'] = $isInteractive ? $this->askText(
+                label: 'Application name',
+                placeholder: 'my-app',
+                required: true
+            ) : 'my-app';
 
-        // =====================================================================
-        // PHP VERSION
-        // =====================================================================
+            // Application description - used in composer.json and documentation
+            $config['description'] = $isInteractive ? $this->askText(
+                label: 'Application description',
+                placeholder: 'A PHP application',
+                required: false
+            ) : 'A PHP application';
 
-        // Minimum PHP version requirement
-        // This determines the "require.php" constraint in composer.json
-        // and affects which language features can be used
-        $config['php_version'] = $this->askSelect(
-            label: 'Minimum PHP version',
-            options: [
-                '8.5' => 'PHP 8.5',
-                '8.4' => 'PHP 8.4',
-                '8.3' => 'PHP 8.3',
-                '8.2' => 'PHP 8.2',
-            ],
-            default: '8.3'
-        );
+            // =====================================================================
+            // PHP VERSION
+            // =====================================================================
 
-        // =====================================================================
-        // OPTIONAL FEATURES
-        // =====================================================================
+            // Minimum PHP version requirement
+            // This determines the "require.php" constraint in composer.json
+            // and affects which language features can be used
+            $config['php_version'] = $isInteractive ? $this->askSelect(
+                label: 'Minimum PHP version',
+                options: [
+                    '8.5' => 'PHP 8.5',
+                    '8.4' => 'PHP 8.4',
+                    '8.3' => 'PHP 8.3',
+                    '8.2' => 'PHP 8.2',
+                ],
+                default: '8.3'
+            ) : '8.3';
 
-        // PHPUnit - Unit testing framework
-        // Includes PHPUnit in require-dev and creates tests/ directory
-        $config['include_tests'] = $this->askConfirm(
-            label: 'Include PHPUnit for testing?',
-            default: true
-        );
+            // =====================================================================
+            // OPTIONAL FEATURES
+            // =====================================================================
 
-        // Quality tools - Static analysis and code formatting
-        // Includes PHPStan (static analysis) and Pint (code formatting)
-        $config['include_quality_tools'] = $this->askConfirm(
-            label: 'Include quality tools (PHPStan, Pint)?',
-            default: true
-        );
+            // PHPUnit - Unit testing framework
+            // Includes PHPUnit in require-dev and creates tests/ directory
+            $config['include_tests'] = $isInteractive ? $this->askConfirm(
+                label: 'Include PHPUnit for testing?',
+                default: true
+            ) : true;
 
-        return $config;
-    }
+            // Quality tools - Static analysis and code formatting
+            // Includes PHPStan (static analysis) and Pint (code formatting)
+            $config['include_quality_tools'] = $isInteractive ? $this->askConfirm(
+                label: 'Include quality tools (PHPStan, Pint)?',
+                default: true
+            ) : true;
+
+            return $config;
+        }
 
     /**
      * Get the installation command.
