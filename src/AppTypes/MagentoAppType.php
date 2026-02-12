@@ -158,8 +158,8 @@ class MagentoAppType extends AbstractAppType
             required: true
         );
 
-        // Private key (password)
-        $config['magento_private_key'] = $this->askText(
+        // Private key (password) - masked input for security
+        $config['magento_private_key'] = $this->askPassword(
             label: 'Magento Private Key (password)',
             placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
             required: true

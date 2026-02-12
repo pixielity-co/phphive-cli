@@ -6,6 +6,7 @@ namespace PhpHive\Cli\AppTypes;
 
 use function array_key_first;
 use function Laravel\Prompts\confirm;
+use function Laravel\Prompts\password;
 use function Laravel\Prompts\select;
 use function Laravel\Prompts\text;
 
@@ -140,6 +141,44 @@ abstract class AbstractAppType implements AppTypeInterface
             label: $label,
             placeholder: $placeholder,
             default: $default ?? '',
+            required: $required
+        );
+    }
+
+    /**
+     * Ask a password input question with masking.
+     *
+     * Displays an interactive password input prompt using Laravel Prompts.
+     * Characters are masked as they're typed for security.
+     *
+     * In non-interactive mode (--no-interaction flag), returns the default value
+     * or an empty string if no default is provided.
+     *
+     * Example usage:
+     * ```php
+     * $apiKey = $this->askPassword(
+     *     label: 'API Key',
+     *     placeholder: 'Enter your secret key',
+     *     required: true
+     * );
+     * ```
+     *
+     * @param  string      $label       The question label to display
+     * @param  string      $placeholder Placeholder text shown in the input field
+     * @param  string|null $default     Default value if user presses enter without input
+     * @param  bool        $required    Whether the input is required (cannot be empty)
+     * @return string      The user's input value
+     */
+    protected function askPassword(string $label, string $placeholder = '', ?string $default = null, bool $required = true): string
+    {
+        // In non-interactive mode, return default value
+        if (! $this->input->isInteractive()) {
+            return $default ?? '';
+        }
+
+        return password(
+            label: $label,
+            placeholder: $placeholder,
             required: $required
         );
     }
