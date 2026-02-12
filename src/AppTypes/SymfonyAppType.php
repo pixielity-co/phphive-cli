@@ -131,17 +131,17 @@ class SymfonyAppType extends AbstractAppType
         // =====================================================================
 
         // Symfony version selection
-        // - Version 7.2: Latest features and improvements
         // - Version 7.1: Long-term support (LTS) with extended maintenance
+        // - Version 7.0: Latest stable version
         // - Version 6.4: Previous LTS version for legacy compatibility
         $config['symfony_version'] = $this->askSelect(
             label: 'Symfony version',
             options: [
-                '7.2' => 'Symfony 7.2 (Latest)',
                 '7.1' => 'Symfony 7.1 (LTS)',
+                '7.0' => 'Symfony 7.0',
                 '6.4' => 'Symfony 6.4 (LTS)',
             ],
-            default: '7.2'
+            default: '7.1'
         );
 
         // =====================================================================

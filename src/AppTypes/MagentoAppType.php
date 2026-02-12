@@ -142,6 +142,31 @@ class MagentoAppType extends AbstractAppType
         );
 
         // =====================================================================
+        // MAGENTO AUTHENTICATION
+        // =====================================================================
+
+        // Magento requires authentication keys from repo.magento.com
+        // Users can get these keys from: https://marketplace.magento.com/customer/accessKeys/
+        $this->output->writeln('');
+        $this->output->writeln('<comment>Magento Authentication Keys</comment>');
+        $this->output->writeln('<info>Get your keys from: https://marketplace.magento.com/customer/accessKeys/</info>');
+        $this->output->writeln('');
+
+        // Public key (username)
+        $config['magento_public_key'] = $this->askText(
+            label: 'Magento Public Key (username)',
+            placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+            required: true
+        );
+
+        // Private key (password)
+        $config['magento_private_key'] = $this->askText(
+            label: 'Magento Private Key (password)',
+            placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+            required: true
+        );
+
+        // =====================================================================
         // MAGENTO VERSION
         // =====================================================================
 
@@ -367,8 +392,16 @@ class MagentoAppType extends AbstractAppType
         // Extract Magento version from config, default to version 2.4.7
         $version = $config['magento_version'] ?? '2.4.7';
 
-        // Return Composer create-project command with Magento repository
-        return "composer create-project --repository-url=https://repo.magento.com/ magento/project-community-edition:{$version} .";
+        // Extract authentication keys
+        $publicKey = $config['magento_public_key'] ?? '';
+        $privateKey = $config['magento_private_key'] ?? '';
+
+        // Configure Composer authentication first, then create project
+        // Using && to chain commands - auth config must succeed before create-project
+        $authCommand = "composer config --global http-basic.repo.magento.com {$publicKey} {$privateKey}";
+        $createCommand = "composer create-project --repository-url=https://repo.magento.com/ magento/project-community-edition:{$version} .";
+
+        return "{$authCommand} && {$createCommand}";
     }
 
     /**

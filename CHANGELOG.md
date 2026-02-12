@@ -5,6 +5,22 @@ All notable changes to PhpHive CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.13] - 2026-02-12
+
+### Added
+
+- **Magento Authentication**: Added prompts for Magento authentication keys
+  - Prompts for public key (username) and private key (password)
+  - Automatically configures Composer authentication before installation
+  - Provides helpful link to Magento Marketplace for obtaining keys
+
+### Fixed
+
+- **Symfony Version**: Fixed Symfony version options in `make:app` command
+  - Changed from non-existent 7.2 to available 7.1 (LTS)
+  - Updated default to 7.1 (LTS) instead of 7.2
+  - Options now: 7.1 (LTS), 7.0, 6.4 (LTS)
+
 ## [1.0.12] - 2026-02-12
 
 ### Added
