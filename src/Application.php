@@ -63,7 +63,7 @@ final class Application extends BaseApplication
     /**
      * Current application version.
      */
-    private const string APP_VERSION = '1.0.9';
+    private const string APP_VERSION = '1.0.10';
 
     /**
      * Whether the ASCII art banner has been displayed.
