@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace PhpHive\Cli\Console\Commands\Make;
 
-use function array_map;
-use function explode;
-use function implode;
+use Exception;
+use InvalidArgumentException;
+
 use function is_dir;
-use function json_encode;
 
 use Override;
 use PhpHive\Cli\Console\Commands\BaseCommand;
-use RuntimeException;
+use PhpHive\Cli\Factories\PackageTypeFactory;
+use PhpHive\Cli\Support\Filesystem;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 
 use function str_replace;
 
@@ -20,9 +22,8 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-
-use function ucfirst;
 
 /**
  * Create Package Command.
@@ -144,12 +145,35 @@ final class CreatePackageCommand extends BaseCommand
     /**
      * Configure the command options and arguments.
      *
-     * Defines the command signature with required arguments and help text.
-     * The name argument is required and should be a valid directory name
-     * using kebab-case convention (e.g., logger, http-client).
-     *
-     * Common options (workspace, force, no-cache, no-interaction) are inherited from BaseCommand.
+     * Defines the command signature with required arguments, options, and help text.
      */
+    #[Override]
+    protected function configure(): void
+    {
+        parent::configure();
+
+        $this
+            ->addArgument(
+                'name',
+                InputArgument::REQUIRED,
+                'Package name (e.g., logger, http-client)',
+            )
+            ->addOption(
+                'type',
+                't',
+                InputOption::VALUE_REQUIRED,
+                'Package type (laravel, symfony, magento, skeleton)',
+            )
+            ->addOption(
+                'description',
+                'd',
+                InputOption::VALUE_REQUIRED,
+                'Package description',
+            );
+    }
+
+    /**
+     * Set help text for the command.
     #[Override]
     protected function configure(): void
     {
@@ -179,14 +203,11 @@ final class CreatePackageCommand extends BaseCommand
      *
      * This method orchestrates the entire package scaffolding process:
      * 1. Extracts and validates the package name
-     * 2. Checks if the package already exists
-     * 3. Creates the complete directory structure
-     * 4. Generates all configuration files
-     * 5. Creates PHPUnit configuration and documentation
+     * 2. Prompts for package type if not provided
+     * 3. Checks if the package already exists
+     * 4. Creates the complete directory structure using stubs
+     * 5. Processes stub templates with variables
      * 6. Displays next steps to the user
-     *
-     * The command will fail if a package with the same name already
-     * exists in the packages/ directory to prevent accidental overwrites.
      *
      * @param  InputInterface  $input  Command input (arguments and options)
      * @param  OutputInterface $output Command output (for displaying messages)
@@ -200,63 +221,80 @@ final class CreatePackageCommand extends BaseCommand
         // Display intro banner with package name
         $this->intro("Creating package: {$name}");
 
+        // Determine package type (prompt if not provided)
+        $type = $input->getOption('type');
+        $packageTypeFactory = new PackageTypeFactory($this->composerService());
+
+        if ($type === null) {
+            $type = $this->select(
+                label: 'Select package type',
+                options: $packageTypeFactory->getTypeOptions(),
+                default: 'skeleton'
+            );
+        }
+
+        // Validate and create package type instance
+        try {
+            $packageType = $packageTypeFactory->create($type);
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            $this->error($invalidArgumentException->getMessage());
+
+            return Command::FAILURE;
+        }
+
+        $this->line('');
+        $this->comment('Selected: ' . $packageType->getDisplayName());
+        $this->line('');
+
         // Determine the full path for the new package
         $root = $this->getMonorepoRoot();
         $packagePath = "{$root}/packages/{$name}";
 
         // Check if package already exists to prevent overwriting
-        // This is a safety check to avoid destroying existing work
         if (is_dir($packagePath)) {
             $this->error("Package '{$name}' already exists");
 
             return Command::FAILURE;
         }
 
-        // Initialize filesystem helper for file operations
+        // Get stub path for the selected package type
+        $stubsBasePath = dirname(__DIR__, 4) . '/stubs';
+        $stubPath = $packageType->getStubPath($stubsBasePath);
+
+        if (! is_dir($stubPath)) {
+            $this->error("Stub directory not found for package type '{$type}' at: {$stubPath}");
+
+            return Command::FAILURE;
+        }
+
+        // Initialize filesystem helper
         $filesystem = $this->filesystem();
 
-        // Create directory structure
-        // Packages have a simpler structure than apps (no public/ or config/)
-        $this->info('Creating directory structure...');
-        $filesystem->makeDirectory("{$packagePath}/src", 0755, true);
-        $filesystem->makeDirectory("{$packagePath}/tests/Unit", 0755, true);
+        // Create package directory
+        $this->info('Creating package directory...');
+        $filesystem->makeDirectory($packagePath, 0755, true);
 
-        // Create composer.json
-        // This file defines PHP dependencies, autoloading, and package metadata
-        // Note: type is "library" for packages vs "project" for apps
-        $this->info('Creating composer.json...');
-        $composerJson = $this->generateComposerJson($name);
-        $composerJsonContent = json_encode($composerJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-        if ($composerJsonContent === false) {
-            throw new RuntimeException('Failed to encode composer.json');
+        // Copy stub files and process templates
+        $this->info('Processing stub templates...');
+
+        // Prepare stub variables using package type
+        $description = $input->getOption('description') ?? "A {$type} package";
+        $variables = $packageType->prepareVariables($name, $description);
+
+        // Copy and process all stub files with package type naming rules
+        $this->copyStubFiles($stubPath, $packagePath, $variables, $filesystem, $packageType->getFileNamingRules());
+
+        // Run post-creation tasks (e.g., composer install)
+        $this->line('');
+        $this->info('Installing dependencies...');
+
+        try {
+            $packageType->postCreate($packagePath);
+            $this->comment('✓ Dependencies installed successfully');
+        } catch (Exception $exception) {
+            $this->warning('Composer install failed. You may need to run it manually.');
+            $this->line($exception->getMessage());
         }
-        $filesystem->write("{$packagePath}/composer.json", $composerJsonContent);
-
-        // Create package.json
-        // This file defines Turbo tasks and npm scripts for the package
-        $this->info('Creating package.json...');
-        $packageJson = $this->generatePackageJson($name);
-        $packageJsonContent = json_encode($packageJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-        if ($packageJsonContent === false) {
-            throw new RuntimeException('Failed to encode package.json');
-        }
-        $filesystem->write("{$packagePath}/package.json", $packageJsonContent);
-
-        // Create README
-        // This provides documentation and usage instructions for the package
-        $this->info('Creating README.md...');
-        $readme = $this->generateReadme($name);
-        $filesystem->write("{$packagePath}/README.md", $readme);
-
-        // Create PHPUnit configuration
-        // This configures the test runner with proper settings and test suites
-        $this->info('Creating phpunit.xml...');
-        $phpunitXml = $this->generatePhpUnitXml();
-        $filesystem->write("{$packagePath}/phpunit.xml", $phpunitXml);
-
-        // Create .gitkeep files
-        // These preserve empty directories in version control
-        $filesystem->write("{$packagePath}/src/.gitkeep", '');
 
         // Display success message and next steps
         $this->line('');
@@ -264,140 +302,73 @@ final class CreatePackageCommand extends BaseCommand
         $this->line('');
         $this->comment('Next steps:');
         $this->line("  1. cd packages/{$name}");
-        $this->line('  2. composer install');
-        $this->line('  3. Start coding in src/');
+        $this->line('  2. Start coding in src/');
 
         return Command::SUCCESS;
     }
 
     /**
-     * Generate composer.json content.
+     * Copy stub files to package directory with variable replacement.
+     *
+     * @param string                $stubPath    Source stub directory
+     * @param string                $packagePath Destination package directory
+     * @param array<string, string> $variables   Variables for template replacement
+     * @param Filesystem            $filesystem  Filesystem service
+     * @param array<string, string> $namingRules File naming rules for special files
      */
-    private function generateComposerJson(string $name): array
+    private function copyStubFiles(string $stubPath, string $packagePath, array $variables, Filesystem $filesystem, array $namingRules = []): void
     {
-        $namespace = $this->nameToNamespace($name);
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($stubPath, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::SELF_FIRST
+        );
 
-        return [
-            'name' => "phphive/{$name}",
-            'description' => ucfirst(str_replace('-', ' ', $name)) . ' package',
-            'type' => 'library',
-            'license' => 'MIT',
-            'require' => [
-                'php' => '^8.2',
-            ],
-            'require-dev' => [
-                'phpunit/phpunit' => '^11.0',
-                'phpstan/phpstan' => '^2.0',
-                'laravel/pint' => '^1.18',
-            ],
-            'autoload' => [
-                'psr-4' => [
-                    "{$namespace}\\" => 'src/',
-                ],
-            ],
-            'autoload-dev' => [
-                'psr-4' => [
-                    "{$namespace}\\Tests\\" => 'tests/',
-                ],
-            ],
-            'minimum-stability' => 'stable',
-            'prefer-stable' => true,
-        ];
-    }
+        foreach ($iterator as $item) {
+            $relativePath = substr($item->getPathname(), strlen($stubPath) + 1);
+            $destinationPath = $packagePath . '/' . $relativePath;
 
-    /**
-     * Generate package.json content.
-     */
-    private function generatePackageJson(string $name): array
-    {
-        return [
-            'name' => "@phphive/{$name}",
-            'version' => '1.0.0',
-            'private' => true,
-            'scripts' => [
-                'composer:install' => 'composer install --no-interaction --prefer-dist --optimize-autoloader',
-                'test' => 'vendor/bin/phpunit',
-                'test:unit' => 'vendor/bin/phpunit --testsuite=Unit',
-                'lint' => 'vendor/bin/pint --test',
-                'format' => 'vendor/bin/pint',
-                'typecheck' => 'vendor/bin/phpstan analyse',
-                'clean' => 'rm -rf .phpunit.cache .phpstan.cache',
-            ],
-        ];
-    }
+            if ($item->isDir()) {
+                $filesystem->makeDirectory($destinationPath, 0755, true);
+            } else {
+                // Remove .stub extension if present
+                if (str_ends_with($destinationPath, '.stub')) {
+                    $destinationPath = substr($destinationPath, 0, -5);
+                }
 
-    /**
-     * Generate README content.
-     */
-    private function generateReadme(string $name): string
-    {
-        $title = ucfirst(str_replace('-', ' ', $name));
+                // Apply naming rules from package type
+                foreach ($namingRules as $pattern => $replacement) {
+                    if (str_ends_with($destinationPath, $pattern)) {
+                        // Replace pattern with actual values from variables
+                        $replacedPattern = str_replace(array_keys($variables), array_values($variables), $replacement);
+                        $destinationPath = str_replace($pattern, $replacedPattern, $destinationPath);
 
-        return <<<MD
-        # {$title}
+                        break;
+                    }
+                }
 
-        {$title} package for the PhpHive monorepo.
+                // Read stub content
+                $content = file_get_contents($item->getPathname());
+                if ($content === false) {
+                    continue;
+                }
 
-        ## Installation
+                // For JSON files, escape backslashes in namespace values
+                $isJsonFile = str_ends_with($destinationPath, '.json');
+                $variablesToUse = $variables;
 
-        ```bash
-        composer require phphive/{$name}
-        ```
+                if ($isJsonFile && isset($variables['{{NAMESPACE}}'])) {
+                    // Escape single backslashes to double backslashes for JSON
+                    // But don't double-escape already escaped backslashes
+                    $namespace = $variables['{{NAMESPACE}}'];
+                    $variablesToUse['{{NAMESPACE}}'] = str_replace('\\', '\\\\', $namespace);
+                }
 
-        ## Usage
+                // Replace variables
+                $content = str_replace(array_keys($variablesToUse), array_values($variablesToUse), $content);
 
-        ```php
-        // Add usage examples here
-        ```
-
-        ## Testing
-
-        ```bash
-        composer test
-        ```
-
-        ## License
-
-        MIT
-        MD;
-    }
-
-    /**
-     * Generate PHPUnit configuration.
-     */
-    private function generatePhpUnitXml(): string
-    {
-        return <<<'XML_WRAP'
-        <?xml version="1.0" encoding="UTF-8"?>
-        <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                 xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
-                 bootstrap="vendor/autoload.php"
-                 colors="true"
-                 failOnRisky="true"
-                 failOnWarning="true"
-                 cacheDirectory=".phpunit.cache">
-            <testsuites>
-                <testsuite name="Unit">
-                    <directory>tests/Unit</directory>
-                </testsuite>
-            </testsuites>
-            <source>
-                <include>
-                    <directory>src</directory>
-                </include>
-            </source>
-        </phpunit>
-        XML_WRAP;
-    }
-
-    /**
-     * Convert package name to namespace.
-     */
-    private function nameToNamespace(string $name): string
-    {
-        $parts = explode('-', $name);
-        $parts = array_map(ucfirst(...), $parts);
-
-        return 'PhpHive\\' . implode('', $parts);
+                // Write processed content
+                $filesystem->write($destinationPath, $content);
+            }
+        }
     }
 }
