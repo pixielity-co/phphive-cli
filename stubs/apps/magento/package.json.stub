@@ -2,6 +2,7 @@
     "name": "@mono-php/{{APP_NAME_NORMALIZED}}",
     "version": "1.0.0",
     "private": true,
+    "packageManager": "pnpm@10.0.0",
     "scripts": {
         "composer:install": "composer install --no-interaction --prefer-dist --optimize-autoloader",
         "dev": "php bin/magento deploy:mode:set developer && php bin/magento cache:disable",
