@@ -23,6 +23,7 @@ phpstan.neon.dist
 # PHPUnit
 .phpunit.cache/
 .coverage/
+coverage/
 phpunit.xml.dist
 
 # Infection

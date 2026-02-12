@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace PhpHive\Cli\Console\Commands\Make;
 
+use Exception;
+
 use function exec;
 use function is_array;
 use function is_dir;
@@ -405,42 +407,49 @@ final class MakeWorkspaceCommand extends BaseCommand
      * Updates package.json and composer.json with the new workspace name,
      * then initializes a fresh git repository.
      *
-     * @param string $name Workspace name
+     * @param  string $name Workspace name
+     * @return bool   True on success
      */
-    private function updateWorkspaceConfig(string $name): void
+    private function updateWorkspaceConfig(string $name): bool
     {
-        $filesystem = $this->filesystem();
+        try {
+            $filesystem = $this->filesystem();
 
-        // Update package.json
-        $packageJsonPath = "{$name}/package.json";
-        if ($filesystem->exists($packageJsonPath)) {
-            $content = $filesystem->read($packageJsonPath);
-            $packageJson = json_decode($content, true);
-            if (is_array($packageJson)) {
-                $packageJson['name'] = $name;
-                $filesystem->write(
-                    $packageJsonPath,
-                    json_encode($packageJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"
-                );
+            // Update package.json
+            $packageJsonPath = "{$name}/package.json";
+            if ($filesystem->exists($packageJsonPath)) {
+                $content = $filesystem->read($packageJsonPath);
+                $packageJson = json_decode($content, true);
+                if (is_array($packageJson)) {
+                    $packageJson['name'] = $name;
+                    $filesystem->write(
+                        $packageJsonPath,
+                        json_encode($packageJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"
+                    );
+                }
             }
-        }
 
-        // Update composer.json
-        $composerJsonPath = "{$name}/composer.json";
-        if ($filesystem->exists($composerJsonPath)) {
-            $content = $filesystem->read($composerJsonPath);
-            $composerJson = json_decode($content, true);
-            if (is_array($composerJson)) {
-                // Update name to vendor/package format
-                $composerJson['name'] = "phphive/{$name}";
-                $filesystem->write(
-                    $composerJsonPath,
-                    json_encode($composerJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"
-                );
+            // Update composer.json
+            $composerJsonPath = "{$name}/composer.json";
+            if ($filesystem->exists($composerJsonPath)) {
+                $content = $filesystem->read($composerJsonPath);
+                $composerJson = json_decode($content, true);
+                if (is_array($composerJson)) {
+                    // Update name to vendor/package format
+                    $composerJson['name'] = "phphive/{$name}";
+                    $filesystem->write(
+                        $composerJsonPath,
+                        json_encode($composerJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"
+                    );
+                }
             }
-        }
 
-        // Initialize new git repository
-        exec("cd {$name} && git init && git add . && git commit -m 'Initial commit from hive-template' 2>&1");
+            // Initialize new git repository
+            exec("cd {$name} && git init && git add . && git commit -m 'Initial commit from hive-template' 2>&1");
+
+            return true;
+        } catch (Exception $exception) {
+            return false;
+        }
     }
 }
