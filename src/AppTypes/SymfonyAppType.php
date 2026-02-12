@@ -148,8 +148,8 @@ class SymfonyAppType extends AbstractAppType
         // PROJECT TYPE
         // =====================================================================
 
-        // Project type selection determines the base skeleton
-        // - webapp: Full-featured with Twig, forms, security, asset management
+        // Project type selection determines which packages to install
+        // - webapp: Installs symfony/webapp-pack for full-featured application
         // - skeleton: Minimal with only HTTP kernel and routing
         $config['project_type'] = $this->askSelect(
             label: 'Project type',
@@ -205,32 +205,28 @@ class SymfonyAppType extends AbstractAppType
      * a new Symfony project in the current directory.
      *
      * Project types:
-     * - webapp: symfony/website-skeleton (full-featured)
+     * - webapp: symfony/skeleton with webapp pack (full-featured)
      * - skeleton: symfony/skeleton (minimal)
      *
      * Command format:
      * ```bash
-     * composer create-project symfony/{type}:{version}.* .
+     * composer create-project symfony/skeleton:{version}.* .
      * ```
      *
-     * The .* allows any patch version (e.g., 7.2.0, 7.2.1, 7.2.2)
+     * The .* allows any patch version (e.g., 7.1.0, 7.1.1, 7.1.2)
+     *
+     * Note: symfony/website-skeleton is abandoned. We now use symfony/skeleton
+     * and install symfony/webapp-pack for full-featured applications.
      *
      * @param  array<string, mixed> $config Configuration from collectConfiguration()
      * @return string               The Composer command to execute
      */
     public function getInstallCommand(array $config): string
     {
-        // Extract version and project type from config
-        $version = $config['symfony_version'] ?? '7.2';
-        $type = $config['project_type'] ?? 'webapp';
+        // Extract version from config
+        $version = $config['symfony_version'] ?? '7.1';
 
-        // Determine which Symfony skeleton to use
-        if ($type === 'webapp') {
-            // Full-featured web application skeleton
-            return "composer create-project symfony/website-skeleton:{$version}.* .";
-        }
-
-        // Minimal microservice/API skeleton
+        // Always use symfony/skeleton (website-skeleton is abandoned)
         return "composer create-project symfony/skeleton:{$version}.* .";
     }
 
@@ -242,10 +238,11 @@ class SymfonyAppType extends AbstractAppType
      * configure the application, and run initial setup tasks.
      *
      * Command execution order:
-     * 1. Install optional bundles (Maker, Security)
-     * 2. Install Doctrine ORM pack
-     * 3. Create database if it doesn't exist
-     * 4. Run database migrations
+     * 1. Install webapp pack (if full-featured app selected)
+     * 2. Install optional bundles (Maker, Security)
+     * 3. Install Doctrine ORM pack
+     * 4. Create database if it doesn't exist
+     * 5. Run database migrations
      *
      * All commands are executed in the application directory and should
      * complete successfully before the scaffolding is considered complete.
@@ -257,6 +254,16 @@ class SymfonyAppType extends AbstractAppType
     {
         // Initialize commands array
         $commands = [];
+
+        // =====================================================================
+        // WEBAPP PACK (if full-featured app)
+        // =====================================================================
+
+        // Install webapp pack for full-featured applications
+        // This includes Twig, forms, security, asset management, etc.
+        if (($config['project_type'] ?? 'webapp') === 'webapp') {
+            $commands[] = 'composer require symfony/webapp-pack';
+        }
 
         // =====================================================================
         // OPTIONAL BUNDLES

@@ -65,6 +65,27 @@ abstract class AbstractAppType implements AppTypeInterface
     protected OutputInterface $output;
 
     /**
+     * Get commands to run before installation.
+     *
+     * Returns an array of shell commands to execute before the main installation
+     * command. By default, returns an empty array. Concrete app types can override
+     * this method to provide pre-installation setup commands.
+     *
+     * Example use cases:
+     * - Configure authentication (e.g., Magento repository credentials)
+     * - Set up environment variables
+     * - Create configuration files
+     * - Install system dependencies
+     *
+     * @param  array<string, mixed> $config Configuration from collectConfiguration()
+     * @return array<string>        Array of shell commands to execute sequentially
+     */
+    public function getPreInstallCommands(array $config): array
+    {
+        return [];
+    }
+
+    /**
      * Get the base stub directory path.
      *
      * Returns the absolute path to the root stubs directory where all

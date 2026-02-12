@@ -5,6 +5,28 @@ All notable changes to PhpHive CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.14] - 2026-02-12
+
+### Fixed
+
+- **Symfony App Creation**: Changed from abandoned `symfony/website-skeleton` to `symfony/skeleton`
+  - Now uses `symfony/skeleton` for all project types
+  - Installs `symfony/webapp-pack` for full-featured applications
+  - Supports Symfony 7.1 (LTS), 7.0, and 6.4 (LTS)
+  
+- **Magento Authentication**: Fixed authentication configuration for Magento installation
+  - Now creates `auth.json` file with credentials before installation
+  - More reliable than using `composer config --global` command
+  - Prevents "http-basic.repo.magento.com is not defined" error
+  - Uses Laravel Prompts `note()` for cleaner authentication key instructions
+
+### Added
+
+- **Pre-Install Commands**: Added `getPreInstallCommands()` method to app type interface
+  - Allows app types to run setup commands before main installation
+  - Used by Magento to configure authentication before composer create-project
+  - Default implementation in AbstractAppType returns empty array
+
 ## [1.0.13] - 2026-02-12
 
 ### Added

@@ -150,8 +150,24 @@ trait InteractsWithPrompts
      * or alert. They're useful for displaying important information that
      * needs to stand out.
      *
+     * The parameters can be used in two ways:
+     * 1. note($message, $type) - Single message with optional type
+     * 2. note($message, $title) - Message with a title (type defaults to null)
+     *
+     * Examples:
+     * ```php
+     * // Simple note
+     * $this->note('This is important information');
+     *
+     * // Note with type
+     * $this->note('Something went wrong', 'error');
+     *
+     * // Note with title
+     * $this->note('Get your keys from: https://example.com', 'Authentication Keys');
+     * ```
+     *
      * @param string      $message The note message to display
-     * @param string|null $type    Optional type ('info', 'warning', 'error', 'alert')
+     * @param string|null $type    Optional type ('info', 'warning', 'error', 'alert') or title
      */
     protected function note(string $message, ?string $type = null): void
     {

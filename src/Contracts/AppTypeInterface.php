@@ -40,6 +40,14 @@ interface AppTypeInterface
     public function getInstallCommand(array $config): string;
 
     /**
+     * Get commands to run before installation.
+     *
+     * @param  array<string, mixed> $config Configuration from collectConfiguration
+     * @return array<string>        Array of commands to execute before installation
+     */
+    public function getPreInstallCommands(array $config): array;
+
+    /**
      * Get additional setup commands to run after installation.
      *
      * @param  array<string, mixed> $config Configuration from collectConfiguration

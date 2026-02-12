@@ -218,6 +218,25 @@ final class CreateAppCommand extends BaseCommand
         $filesystem->makeDirectory($appPath, 0755, true);
 
         // =====================================================================
+        // PRE-INSTALL COMMANDS
+        // =====================================================================
+
+        // Run pre-installation commands (e.g., authentication setup)
+        $preCommands = $appType->getPreInstallCommands($config);
+        if ($preCommands !== []) {
+            $this->info('Running pre-installation commands...');
+            foreach ($preCommands as $preCommand) {
+                $this->line("  → {$preCommand}");
+                $exitCode = $this->executeCommand($preCommand, $appPath);
+                if ($exitCode !== 0) {
+                    $this->error("Pre-installation command failed: {$preCommand}");
+
+                    return Command::FAILURE;
+                }
+            }
+        }
+
+        // =====================================================================
         // INSTALLATION COMMAND
         // =====================================================================
 

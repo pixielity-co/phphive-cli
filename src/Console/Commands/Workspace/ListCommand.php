@@ -155,7 +155,7 @@ final class ListCommand extends BaseCommand
             // Pretty-print for readability
             $jsonOutput = json_encode($workspaces, JSON_PRETTY_PRINT);
             if ($jsonOutput !== false) {
-                $output->writeln($jsonOutput);
+                $this->line($jsonOutput);
             }
 
             return Command::SUCCESS;
