@@ -334,7 +334,8 @@ final class MakeWorkspaceCommand extends BaseCommand
             if ($content !== false) {
                 $composerJson = json_decode($content, true);
                 if (is_array($composerJson)) {
-                    $composerJson['name'] = $name;
+                    // Update name to vendor/package format
+                    $composerJson['name'] = "phphive/{$name}";
                     file_put_contents(
                         $composerJsonPath,
                         json_encode($composerJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"

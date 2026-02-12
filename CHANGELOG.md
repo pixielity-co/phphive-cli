@@ -5,6 +5,21 @@ All notable changes to PhpHive CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.9] - 2026-02-12
+
+### Fixed
+
+- **Workspace Creation**: Fixed composer.json name format in `make:workspace` command
+  - Now uses vendor/package format (`phphive/workspace-name`) instead of just workspace name
+  - Ensures compatibility with Composer's package naming requirements
+  - Prevents "Does not match the regex pattern" error during `composer install`
+
+### Changed
+
+- Template repository now includes `phphive/cli` as dev dependency
+- Workspace `bin/hive` wrapper now uses local vendor installation first
+- Updated template README with new installation workflow
+
 ## [1.0.8] - 2026-02-12
 
 ### Added
