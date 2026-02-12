@@ -4,9 +4,20 @@ declare(strict_types=1);
 
 namespace PhpHive\Cli\Concerns;
 
+use function explode;
+use function file_exists;
+use function getcwd;
+use function getenv;
+
+use const PHP_EOL;
+use const PHP_OS_FAMILY;
+
 use function preg_match;
 
+use RuntimeException;
 use Symfony\Component\Process\Process;
+
+use function trim;
 
 /**
  * Composer Integration Trait.
@@ -38,10 +49,15 @@ trait InteractsWithComposer
     /**
      * Run a Composer command in a specified directory.
      *
-     * This is the base method for executing Composer commands. It creates
-     * a subprocess with TTY support (if available) and streams the output
-     * in real-time. The process has no timeout to accommodate long-running
-     * operations like dependency resolution.
+     * This is the base method for executing Composer commands. It uses PHP's
+     * direct execution to call Composer's PHAR or global installation, ensuring
+     * we use the correct Composer binary regardless of shell environment.
+     *
+     * This approach is more reliable than shell execution because:
+     * - It bypasses shell PATH resolution issues
+     * - It works consistently across different environments
+     * - It avoids issues with wrapper scripts
+     * - It provides better error handling
      *
      * @param  string      $command The Composer command to run (e.g., 'install', 'require symfony/console')
      * @param  string|null $cwd     The working directory (defaults to monorepo root)
@@ -52,9 +68,16 @@ trait InteractsWithComposer
         // Default to monorepo root if no directory specified
         $cwd ??= $this->getMonorepoRoot();
 
-        // Create process from shell command to support complex commands
-        $process = Process::fromShellCommandline(
-            "composer {$command}",
+        // Find the Composer executable
+        $composerBinary = $this->findComposerBinary();
+
+        // Build the command array for Process
+        // Using array format is more reliable than shell command
+        $commandArray = [$composerBinary, ...explode(' ', $command)];
+
+        // Create process with explicit command array
+        $process = new Process(
+            $commandArray,
             $cwd,
             timeout: null, // No timeout for long-running operations
         );
@@ -66,6 +89,58 @@ trait InteractsWithComposer
         return $process->run(function ($type, $buffer): void {
             echo $buffer;
         });
+    }
+
+    /**
+     * Find the Composer binary to execute.
+     *
+     * This method locates the Composer executable in the following order:
+     * 1. COMPOSER_BINARY environment variable (if set)
+     * 2. composer.phar in current directory
+     * 3. composer.phar in monorepo root
+     * 4. Global composer command (via which/where)
+     *
+     * @return string Path to Composer binary
+     *
+     * @throws RuntimeException If Composer cannot be found
+     */
+    protected function findComposerBinary(): string
+    {
+        // Check environment variable first
+        $envBinary = getenv('COMPOSER_BINARY');
+        if (\is_string($envBinary) && $envBinary !== '' && file_exists($envBinary)) {
+            return $envBinary;
+        }
+
+        // Check for composer.phar in current directory
+        if (file_exists(getcwd() . '/composer.phar')) {
+            return getcwd() . '/composer.phar';
+        }
+
+        // Check for composer.phar in monorepo root
+        $monorepoRoot = $this->getMonorepoRoot();
+        if (file_exists($monorepoRoot . '/composer.phar')) {
+            return $monorepoRoot . '/composer.phar';
+        }
+
+        // Try to find global composer using which (Unix) or where (Windows)
+        $whichCommand = PHP_OS_FAMILY === 'Windows' ? 'where' : 'which';
+        $process = Process::fromShellCommandline("{$whichCommand} composer");
+        $process->run();
+
+        if ($process->isSuccessful()) {
+            $output = trim($process->getOutput());
+            if ($output !== '') {
+                // On Windows, 'where' returns multiple lines, take the first one
+                $lines = explode(PHP_EOL, $output);
+
+                return $lines[0];
+            }
+        }
+
+        // Fallback to 'composer' and let the system resolve it
+        // This will fail if composer is not in PATH, but that's expected
+        return 'composer';
     }
 
     /**
