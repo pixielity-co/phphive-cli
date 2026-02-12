@@ -6,6 +6,7 @@ namespace PhpHive\Cli\AppTypes;
 
 use function Laravel\Prompts\note;
 
+use PhpHive\Cli\Concerns\InteractsWithDatabase;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -66,6 +67,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 class MagentoAppType extends AbstractAppType
 {
+    use InteractsWithDatabase;
+
     /**
      * Get the display name of this application type.
      *
@@ -185,37 +188,41 @@ class MagentoAppType extends AbstractAppType
         // DATABASE CONFIGURATION
         // =====================================================================
 
-        // Database name - Magento requires MySQL/MariaDB
-        $config['db_name'] = $this->askText(
-            label: 'Database name',
-            placeholder: $this->normalizeAppName($config['name']),
-            default: $this->normalizeAppName($config['name']),
-            required: true
+        // Ask if user wants automatic database setup
+        $autoSetup = $this->askConfirm(
+            label: 'Would you like automatic MySQL database setup?',
+            default: true
         );
 
-        // Database host
-        $config['db_host'] = $this->askText(
-            label: 'Database host',
-            placeholder: '127.0.0.1',
-            default: '127.0.0.1',
-            required: true
-        );
+        if ($autoSetup) {
+            // Try automatic database setup
+            $dbConfig = $this->promptAutomaticDatabaseSetup($config['name']);
 
-        // Database user
-        $config['db_user'] = $this->askText(
-            label: 'Database user',
-            placeholder: 'root',
-            default: 'root',
-            required: true
-        );
-
-        // Database password
-        $config['db_password'] = $this->askText(
-            label: 'Database password',
-            placeholder: '',
-            default: '',
-            required: false
-        );
+            if ($dbConfig !== null) {
+                // Success! Merge database configuration
+                $config['db_host'] = $dbConfig['db_host'];
+                $config['db_port'] = $dbConfig['db_port'];
+                $config['db_name'] = $dbConfig['db_name'];
+                $config['db_user'] = $dbConfig['db_user'];
+                $config['db_password'] = $dbConfig['db_password'];
+            } else {
+                // Automatic setup failed, fall back to manual
+                $dbConfig = $this->promptManualDatabaseSetup($config['name']);
+                $config['db_host'] = $dbConfig['db_host'];
+                $config['db_port'] = $dbConfig['db_port'];
+                $config['db_name'] = $dbConfig['db_name'];
+                $config['db_user'] = $dbConfig['db_user'];
+                $config['db_password'] = $dbConfig['db_password'];
+            }
+        } else {
+            // User chose manual setup
+            $dbConfig = $this->promptManualDatabaseSetup($config['name']);
+            $config['db_host'] = $dbConfig['db_host'];
+            $config['db_port'] = $dbConfig['db_port'];
+            $config['db_name'] = $dbConfig['db_name'];
+            $config['db_user'] = $dbConfig['db_user'];
+            $config['db_password'] = $dbConfig['db_password'];
+        }
 
         // =====================================================================
         // ADMIN USER CONFIGURATION
