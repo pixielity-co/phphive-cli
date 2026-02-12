@@ -115,6 +115,41 @@ jobs:
           } >> $GITHUB_OUTPUT
 
       # ----------------------------------------------------------------------
+      # Update Version in Application.php
+      # ----------------------------------------------------------------------
+      - name: Update version in Application.php
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i "s/private const string APP_VERSION = '[0-9.]*';/private const string APP_VERSION = '$VERSION';/" src/Application.php
+          echo "Updated Application.php to version $VERSION"
+
+      # ----------------------------------------------------------------------
+      # Update Version in Banner SVG
+      # ----------------------------------------------------------------------
+      - name: Update version in banner SVG
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i "s/v[0-9]\+\.[0-9]\+\.[0-9]\+/v$VERSION/" .github/assets/banner.svg
+          echo "Updated banner.svg to version v$VERSION"
+
+      # ----------------------------------------------------------------------
+      # Commit Version Updates
+      # ----------------------------------------------------------------------
+      - name: Commit version updates
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          git add src/Application.php .github/assets/banner.svg
+          if git diff --staged --quiet; then
+            echo "No version changes to commit"
+          else
+            git commit -m "chore: bump version to ${{ steps.version.outputs.version }} [skip ci]"
+            git push origin main
+            echo "Committed and pushed version updates"
+          fi
+
+      # ----------------------------------------------------------------------
       # Configure Git
       # ----------------------------------------------------------------------
       - name: Configure Git
