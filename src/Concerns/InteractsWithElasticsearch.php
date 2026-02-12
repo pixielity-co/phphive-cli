@@ -14,7 +14,9 @@ use function Laravel\Prompts\spin;
 use function Laravel\Prompts\text;
 use function Laravel\Prompts\warning;
 
-use Symfony\Component\Process\Process;
+use PhpHive\Cli\Support\Filesystem;
+use PhpHive\Cli\Support\Process;
+use RuntimeException;
 
 /**
  * Elasticsearch Interaction Trait.
@@ -100,6 +102,28 @@ use Symfony\Component\Process\Process;
 trait InteractsWithElasticsearch
 {
     /**
+     * Get the Process service instance.
+     *
+     * This method provides access to the Process service for command execution.
+     * It should be implemented by the class using this trait to return the
+     * appropriate Process instance from the dependency injection container.
+     *
+     * @return Process The Process service instance
+     */
+    abstract protected function process(): Process;
+
+    /**
+     * Get the Filesystem service instance.
+     *
+     * This method provides access to the Filesystem service for file operations.
+     * It should be implemented by the class using this trait to return the
+     * appropriate Filesystem instance from the dependency injection container.
+     *
+     * @return Filesystem The Filesystem service instance
+     */
+    abstract protected function filesystem(): Filesystem;
+
+    /**
      * Orchestrate Elasticsearch setup with Docker-first approach.
      *
      * This is the main entry point for Elasticsearch setup. It intelligently
@@ -138,7 +162,8 @@ trait InteractsWithElasticsearch
     protected function setupElasticsearch(string $appName, string $appPath): array
     {
         // Check if Docker is available (requires InteractsWithDocker trait)
-        if (method_exists($this, 'isDockerAvailable') && $this->isDockerAvailable()) {
+
+        if ($this->isDockerAvailable()) {
             // Docker is available - offer Docker setup
             note(
                 'Docker detected! Using Docker provides isolated Elasticsearch, easy management, and no local installation needed.',
@@ -159,14 +184,15 @@ trait InteractsWithElasticsearch
                 // Docker setup failed, fall back to local
                 warning('Docker setup failed. Falling back to local Elasticsearch setup.');
             }
-        } elseif (method_exists($this, 'isDockerInstalled') && ! $this->isDockerInstalled()) {
+
+        } elseif (! $this->isDockerInstalled()) {
             // Docker not installed - offer installation guidance
             $installDocker = confirm(
                 label: 'Docker is not installed. Would you like to see installation instructions?',
                 default: false
             );
 
-            if ($installDocker && method_exists($this, 'provideDockerInstallationGuidance')) {
+            if ($installDocker) {
                 $this->provideDockerInstallationGuidance();
                 info('After installing Docker, you can recreate this application to use Docker.');
             }
@@ -273,12 +299,6 @@ trait InteractsWithElasticsearch
         // =====================================================================
 
         info('Starting Docker containers...');
-
-        if (! method_exists($this, 'startDockerContainers')) {
-            error('InteractsWithDocker trait is required for Docker setup');
-
-            return null;
-        }
 
         $started = spin(
             callback: fn (): bool => $this->startDockerContainers($appPath),
@@ -405,12 +425,13 @@ trait InteractsWithElasticsearch
 
         // Check if docker-compose.yml exists
         $composePath = $appPath . '/docker-compose.yml';
-        $composeExists = file_exists($composePath);
+        $composeExists = $this->filesystem()->exists($composePath);
 
         if ($composeExists) {
-            // Append to existing docker-compose.yml
-            $existingContent = file_get_contents($composePath);
-            if ($existingContent === false) {
+            // Append to existing docker-compose.yml using Filesystem
+            try {
+                $existingContent = $this->filesystem()->read($composePath);
+            } catch (RuntimeException) {
                 return false;
             }
 
@@ -420,9 +441,15 @@ trait InteractsWithElasticsearch
                 $newContent .= "\n" . $kibanaConfig;
             }
 
-            return file_put_contents($composePath, $newContent) !== false;
+            try {
+                $this->filesystem()->write($composePath, $newContent);
+
+                return true;
+            } catch (RuntimeException) {
+                return false;
+            }
         }
-        // Create new docker-compose.yml
+        // Create new docker-compose.yml using Filesystem
         $content = "version: '3.8'\n\n";
         $content .= "services:\n";
         $content .= $esConfig;
@@ -438,7 +465,13 @@ trait InteractsWithElasticsearch
         $content .= "  phphive-{$normalizedName}:\n";
         $content .= "    driver: bridge\n";
 
-        return file_put_contents($composePath, $content) !== false;
+        try {
+            $this->filesystem()->write($composePath, $content);
+
+            return true;
+        } catch (RuntimeException) {
+            return false;
+        }
     }
 
     /**
@@ -603,15 +636,13 @@ trait InteractsWithElasticsearch
 
         while ($attempts < $maxAttempts) {
             // Check container health status using docker inspect
-            $process = new Process(
+            $output = $this->process()->run(
                 ['docker', 'compose', 'ps', '--format', 'json', $serviceName],
                 $appPath
             );
 
-            $process->run();
-
-            if ($process->isSuccessful()) {
-                $output = trim($process->getOutput());
+            if ($output !== null) {
+                $output = trim($output);
                 if ($output !== '') {
                     // Parse JSON output to check health status
                     $serviceInfo = json_decode($output, true);
@@ -620,10 +651,7 @@ trait InteractsWithElasticsearch
                     }
 
                     // Fallback: Try to curl the health endpoint
-                    $healthProcess = new Process(['curl', '-f', 'http://localhost:9200/_cluster/health']);
-                    $healthProcess->run();
-
-                    if ($healthProcess->isSuccessful()) {
+                    if ($this->process()->succeeds(['curl', '-f', 'http://localhost:9200/_cluster/health'])) {
                         return true;
                     }
                 }

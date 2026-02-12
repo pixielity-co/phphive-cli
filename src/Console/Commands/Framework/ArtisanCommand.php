@@ -245,7 +245,7 @@ final class ArtisanCommand extends BaseCommand
 
         // Check if artisan file exists in the workspace
         // This confirms the workspace is a Laravel application
-        if (! file_exists("{$workspacePath}/artisan")) {
+        if (! $this->filesystem()->exists("{$workspacePath}/artisan")) {
             $this->error("Artisan not found in workspace '{$workspace}'. Is this a Laravel application?");
 
             return Command::FAILURE;

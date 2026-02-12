@@ -8,6 +8,11 @@ use function Laravel\Prompts\note;
 
 use PhpHive\Cli\Concerns\InteractsWithDatabase;
 use PhpHive\Cli\Concerns\InteractsWithDocker;
+use PhpHive\Cli\Concerns\InteractsWithElasticsearch;
+use PhpHive\Cli\Concerns\InteractsWithMeilisearch;
+use PhpHive\Cli\Concerns\InteractsWithMinio;
+use PhpHive\Cli\Concerns\InteractsWithRedis;
+use PhpHive\Cli\Support\Process;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -25,9 +30,11 @@ use Symfony\Component\Console\Output\OutputInterface;
  * - Database configuration (MySQL only - Magento requirement)
  * - Admin user creation
  * - Sample data installation
- * - Optional modules (Elasticsearch, Redis, Varnish)
+ * - Optional services (Redis, Elasticsearch, Meilisearch, Minio)
  * - Multi-store configuration
  * - Automatic setup and compilation
+ * - Non-interactive mode with comprehensive flags
+ * - Docker Compose generation for all services
  *
  * The scaffolding process:
  * 1. Collect configuration through interactive prompts
@@ -39,12 +46,35 @@ use Symfony\Component\Console\Output\OutputInterface;
  * 7. Deploy static content and compile DI
  * 8. Apply stub templates for monorepo integration
  *
+ * File Operations:
+ * All file operations use the Filesystem class via $this->filesystem() inherited
+ * from AbstractAppType, providing consistent error handling and testability.
+ *
  * System requirements:
  * - PHP 8.1+ (8.2+ recommended)
  * - MySQL 8.0+ or MariaDB 10.4+
  * - Elasticsearch 7.x or 8.x (for search)
  * - Redis (optional, for caching)
  * - Varnish (optional, for full-page cache)
+ *
+ * Non-interactive mode flags:
+ * --magento-version       Magento version (default: 2.4.7)
+ * --app-name              Application name
+ * --public-key            Magento public key (from marketplace)
+ * --private-key           Magento private key (from marketplace)
+ * --db-name               Database name
+ * --db-user               Database username
+ * --db-password           Database password
+ * --admin-user            Admin username
+ * --admin-email           Admin email address
+ * --admin-password        Admin password
+ * --base-url              Store base URL
+ * --currency              Default currency (USD, EUR, GBP)
+ * --timezone              Default timezone
+ * --use-redis             Enable Redis caching (boolean)
+ * --use-elasticsearch     Enable Elasticsearch search (boolean)
+ * --use-meilisearch       Enable Meilisearch search (boolean)
+ * --use-minio             Enable Minio object storage (boolean)
  *
  * Example configuration:
  * ```php
@@ -60,16 +90,23 @@ use Symfony\Component\Console\Output\OutputInterface;
  *     'admin_password' => 'Admin123!',
  *     'use_elasticsearch' => true,
  *     'use_redis' => true,
+ *     'use_meilisearch' => false,
+ *     'use_minio' => false,
  * ]
  * ```
  *
  * @see https://magento.com Magento Platform
  * @see AbstractAppType
+ * @see Filesystem
  */
 class MagentoAppType extends AbstractAppType
 {
     use InteractsWithDatabase;
     use InteractsWithDocker;
+    use InteractsWithElasticsearch;
+    use InteractsWithMeilisearch;
+    use InteractsWithMinio;
+    use InteractsWithRedis;
 
     /**
      * Get the display name of this application type.
@@ -97,20 +134,41 @@ class MagentoAppType extends AbstractAppType
     }
 
     /**
-     * Collect configuration through interactive prompts.
+     * Collect configuration through interactive prompts or flags.
      *
      * This method guides the user through a series of interactive questions
      * to gather all necessary configuration for creating a Magento application.
+     * In non-interactive mode, it reads configuration from command-line flags.
      *
      * Configuration collected:
      * - Application name and description
      * - Magento version (2.4.6, 2.4.7 Latest)
+     * - Magento authentication keys (public/private)
      * - Database configuration (MySQL only)
      * - Admin user credentials
      * - Sample data installation
-     * - Elasticsearch configuration
-     * - Redis caching
      * - Store configuration (URL, language, currency, timezone)
+     * - Optional services:
+     *   * Redis (caching and session storage)
+     *   * Elasticsearch (search engine)
+     *   * Meilisearch (alternative search engine)
+     *   * Minio (S3-compatible object storage)
+     *
+     * Non-interactive mode flags:
+     * All configuration can be provided via command-line flags for automated
+     * deployments and CI/CD pipelines. See class docblock for complete flag list.
+     *
+     * Service integration:
+     * When services are enabled, this method uses the following traits:
+     * - InteractsWithRedis: Redis setup and Docker Compose generation
+     * - InteractsWithElasticsearch: Elasticsearch setup with optional Kibana
+     * - InteractsWithMeilisearch: Meilisearch setup and configuration
+     * - InteractsWithMinio: Minio object storage with Console UI
+     *
+     * Docker Compose generation:
+     * If Docker is available and services are enabled, a comprehensive
+     * docker-compose.yml file is generated with all selected services,
+     * including proper networking, volumes, and health checks.
      *
      * The configuration array is used by:
      * - getInstallCommand() to determine the installation command
@@ -338,52 +396,124 @@ class MagentoAppType extends AbstractAppType
             default: false
         );
 
-        // Elasticsearch - Search engine (required for production)
-        $elasticsearchOption = $input->getOption('elasticsearch');
-        $config['use_elasticsearch'] = $elasticsearchOption !== null ? (bool) $elasticsearchOption : $this->askConfirm(
-            label: 'Use Elasticsearch for search?',
+        // =====================================================================
+        // REDIS CONFIGURATION
+        // =====================================================================
+
+        // Check if Redis should be enabled (flag or prompt)
+        $redisOption = $input->getOption('use-redis');
+        $config['use_redis'] = $redisOption !== null ? (bool) $redisOption : $this->askConfirm(
+            label: 'Use Redis for caching and sessions?',
             default: true
         );
 
-        // Elasticsearch host (if enabled)
-        if ($config['use_elasticsearch']) {
-            $config['elasticsearch_host'] = $input->getOption('elasticsearch-host') ?? $this->askText(
-                label: 'Elasticsearch host',
-                placeholder: 'localhost',
-                default: 'localhost',
-                required: true
-            );
+        // Setup Redis if enabled
+        if ($config['use_redis']) {
+            $appPath = getcwd() . '/apps/' . $config['name'];
 
-            $config['elasticsearch_port'] = $input->getOption('elasticsearch-port') ?? $this->askText(
-                label: 'Elasticsearch port',
-                placeholder: '9200',
-                default: '9200',
-                required: true
-            );
+            // Use InteractsWithRedis trait for comprehensive setup
+            $redisConfig = $this->setupRedis($config['name'], $appPath);
+
+            // Merge Redis configuration
+            $config['redis_host'] = $redisConfig['redis_host'];
+            $config['redis_port'] = $redisConfig['redis_port'];
+            $config['redis_password'] = $redisConfig['redis_password'] ?? '';
+            $config['redis_using_docker'] = $redisConfig['using_docker'] ?? false;
         }
 
-        // Redis - Caching backend
-        $redisOption = $input->getOption('redis');
-        $config['use_redis'] = $redisOption !== null ? (bool) $redisOption : $this->askConfirm(
-            label: 'Use Redis for caching?',
-            default: true
+        // =====================================================================
+        // SEARCH ENGINE CONFIGURATION
+        // =====================================================================
+
+        // Determine which search engine to use (Elasticsearch or Meilisearch)
+        $elasticsearchOption = $input->getOption('use-elasticsearch');
+        $meilisearchOption = $input->getOption('use-meilisearch');
+
+        // If both flags provided, Elasticsearch takes precedence
+        if ($elasticsearchOption !== null && $meilisearchOption !== null) {
+            if ((bool) $elasticsearchOption) {
+                $config['use_elasticsearch'] = true;
+                $config['use_meilisearch'] = false;
+            } else {
+                $config['use_elasticsearch'] = false;
+                $config['use_meilisearch'] = (bool) $meilisearchOption;
+            }
+        } elseif ($elasticsearchOption !== null) {
+            $config['use_elasticsearch'] = (bool) $elasticsearchOption;
+            $config['use_meilisearch'] = false;
+        } elseif ($meilisearchOption !== null) {
+            $config['use_meilisearch'] = (bool) $meilisearchOption;
+            $config['use_elasticsearch'] = false;
+        } else {
+            // Interactive mode - ask which search engine to use
+            $searchEngine = $this->askSelect(
+                label: 'Select search engine',
+                options: [
+                    'elasticsearch' => 'Elasticsearch (Recommended for Magento)',
+                    'meilisearch' => 'Meilisearch (Fast, lightweight alternative)',
+                    'none' => 'None (Not recommended for production)',
+                ],
+                default: 'elasticsearch'
+            );
+
+            $config['use_elasticsearch'] = $searchEngine === 'elasticsearch';
+            $config['use_meilisearch'] = $searchEngine === 'meilisearch';
+        }
+
+        // Setup Elasticsearch if enabled
+        if ($config['use_elasticsearch']) {
+            $appPath = getcwd() . '/apps/' . $config['name'];
+
+            // Use InteractsWithElasticsearch trait for comprehensive setup
+            $esConfig = $this->setupElasticsearch($config['name'], $appPath);
+
+            // Merge Elasticsearch configuration
+            $config['elasticsearch_host'] = $esConfig['elasticsearch_host'];
+            $config['elasticsearch_port'] = $esConfig['elasticsearch_port'];
+            $config['elasticsearch_user'] = $esConfig['elasticsearch_user'] ?? 'elastic';
+            $config['elasticsearch_password'] = $esConfig['elasticsearch_password'] ?? '';
+            $config['elasticsearch_using_docker'] = $esConfig['using_docker'] ?? false;
+        }
+
+        // Setup Meilisearch if enabled
+        if ($config['use_meilisearch']) {
+            $appPath = getcwd() . '/apps/' . $config['name'];
+
+            // Use InteractsWithMeilisearch trait for comprehensive setup
+            $meilisearchConfig = $this->setupMeilisearch($config['name'], $appPath);
+
+            // Merge Meilisearch configuration
+            $config['meilisearch_host'] = $meilisearchConfig['meilisearch_host'];
+            $config['meilisearch_port'] = $meilisearchConfig['meilisearch_port'];
+            $config['meilisearch_master_key'] = $meilisearchConfig['meilisearch_master_key'] ?? '';
+            $config['meilisearch_using_docker'] = $meilisearchConfig['using_docker'] ?? false;
+        }
+
+        // =====================================================================
+        // OBJECT STORAGE CONFIGURATION (MINIO)
+        // =====================================================================
+
+        // Check if Minio should be enabled (flag or prompt)
+        $minioOption = $input->getOption('use-minio');
+        $config['use_minio'] = $minioOption !== null ? (bool) $minioOption : $this->askConfirm(
+            label: 'Use Minio for object storage (media files)?',
+            default: false
         );
 
-        // Redis host (if enabled)
-        if ($config['use_redis']) {
-            $config['redis_host'] = $input->getOption('redis-host') ?? $this->askText(
-                label: 'Redis host',
-                placeholder: '127.0.0.1',
-                default: '127.0.0.1',
-                required: true
-            );
+        // Setup Minio if enabled
+        if ($config['use_minio']) {
+            $appPath = getcwd() . '/apps/' . $config['name'];
 
-            $config['redis_port'] = $input->getOption('redis-port') ?? $this->askText(
-                label: 'Redis port',
-                placeholder: '6379',
-                default: '6379',
-                required: true
-            );
+            // Use InteractsWithMinio trait for comprehensive setup
+            $minioConfig = $this->setupMinio($config['name'], $appPath);
+
+            // Merge Minio configuration
+            $config['minio_endpoint'] = $minioConfig['minio_endpoint'];
+            $config['minio_port'] = $minioConfig['minio_port'];
+            $config['minio_access_key'] = $minioConfig['minio_access_key'];
+            $config['minio_secret_key'] = $minioConfig['minio_secret_key'];
+            $config['minio_bucket'] = $minioConfig['minio_bucket'];
+            $config['minio_using_docker'] = $minioConfig['using_docker'] ?? false;
         }
 
         return $config;
@@ -450,11 +580,19 @@ class MagentoAppType extends AbstractAppType
      * 2. Install sample data (if requested)
      * 3. Run setup:install with all configuration
      * 4. Configure Elasticsearch (if enabled)
-     * 5. Configure Redis (if enabled)
-     * 6. Deploy static content
-     * 7. Compile dependency injection
-     * 8. Reindex data
-     * 9. Flush cache
+     * 5. Configure Meilisearch (if enabled, via custom module)
+     * 6. Configure Redis (if enabled)
+     * 7. Configure Minio (if enabled, for media storage)
+     * 8. Deploy static content
+     * 9. Compile dependency injection
+     * 10. Reindex data
+     * 11. Flush cache
+     *
+     * Service integration:
+     * - Redis: Configured for cache, page cache, and session storage
+     * - Elasticsearch: Configured as search engine with connection details
+     * - Meilisearch: Requires custom module for Magento integration
+     * - Minio: Configured for media file storage (pub/media)
      *
      * All commands are executed in the application directory and should
      * complete successfully before the scaffolding is considered complete.
@@ -534,18 +672,64 @@ class MagentoAppType extends AbstractAppType
         // =====================================================================
 
         // Configure Redis for caching if enabled
-        if (($config['use_redis'] ?? true) === true) {
+        if (($config['use_redis'] ?? false) === true) {
             $redisHost = $config['redis_host'] ?? '127.0.0.1';
             $redisPort = $config['redis_port'] ?? '6379';
+            $redisPassword = $config['redis_password'] ?? '';
 
             // Configure Redis for default cache
-            $commands[] = "php bin/magento setup:config:set --cache-backend=redis --cache-backend-redis-server={$redisHost} --cache-backend-redis-port={$redisPort} --cache-backend-redis-db=0";
+            $redisCommand = "php bin/magento setup:config:set --cache-backend=redis --cache-backend-redis-server={$redisHost} --cache-backend-redis-port={$redisPort} --cache-backend-redis-db=0";
+            if ($redisPassword !== '') {
+                $redisCommand .= " --cache-backend-redis-password={$redisPassword}";
+            }
+            $commands[] = $redisCommand;
 
             // Configure Redis for page cache
-            $commands[] = "php bin/magento setup:config:set --page-cache=redis --page-cache-redis-server={$redisHost} --page-cache-redis-port={$redisPort} --page-cache-redis-db=1";
+            $pageCommand = "php bin/magento setup:config:set --page-cache=redis --page-cache-redis-server={$redisHost} --page-cache-redis-port={$redisPort} --page-cache-redis-db=1";
+            if ($redisPassword !== '') {
+                $pageCommand .= " --page-cache-redis-password={$redisPassword}";
+            }
+            $commands[] = $pageCommand;
 
             // Configure Redis for session storage
-            $commands[] = "php bin/magento setup:config:set --session-save=redis --session-save-redis-host={$redisHost} --session-save-redis-port={$redisPort} --session-save-redis-db=2";
+            $sessionCommand = "php bin/magento setup:config:set --session-save=redis --session-save-redis-host={$redisHost} --session-save-redis-port={$redisPort} --session-save-redis-db=2";
+            if ($redisPassword !== '') {
+                $sessionCommand .= " --session-save-redis-password={$redisPassword}";
+            }
+            $commands[] = $sessionCommand;
+        }
+
+        // =====================================================================
+        // MINIO CONFIGURATION
+        // =====================================================================
+
+        // Configure Minio for media storage if enabled
+        if (($config['use_minio'] ?? false) === true) {
+            // Note: Minio integration requires a custom Magento module
+            // This is a placeholder for future implementation
+            // You would typically install a module like:
+            // - composer require vendor/magento2-minio-adapter
+            // - php bin/magento module:enable Vendor_MinioAdapter
+            // - php bin/magento setup:upgrade
+
+            // For now, we'll add a comment in the configuration
+            $commands[] = 'echo "Note: Minio is configured. Install a Magento Minio adapter module for full integration."';
+        }
+
+        // =====================================================================
+        // MEILISEARCH CONFIGURATION
+        // =====================================================================
+
+        // Configure Meilisearch if enabled (requires custom module)
+        if (($config['use_meilisearch'] ?? false) === true) {
+            // Note: Meilisearch integration requires a custom Magento module
+            // This is a placeholder for future implementation
+            // You would typically install a module like:
+            // - composer require meilisearch/search-magento2
+            // - php bin/magento module:enable Meilisearch_Search
+            // - php bin/magento setup:upgrade
+
+            $commands[] = 'echo "Note: Meilisearch is configured. Install the Meilisearch Magento module for full integration."';
         }
 
         // =====================================================================
@@ -643,5 +827,18 @@ class MagentoAppType extends AbstractAppType
             // Admin username for documentation
             '{{ADMIN_USER}}' => $config['admin_user'] ?? 'admin',
         ];
+    }
+
+    /**
+     * Get the Process service instance.
+     *
+     * This method provides access to the Process service for command execution.
+     * Required by traits that need to execute shell commands.
+     *
+     * @return Process The Process service instance
+     */
+    protected function process(): Process
+    {
+        return Process::make();
     }
 }

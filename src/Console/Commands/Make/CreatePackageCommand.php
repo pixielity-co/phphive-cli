@@ -12,7 +12,6 @@ use function json_encode;
 
 use Override;
 use PhpHive\Cli\Console\Commands\BaseCommand;
-use PhpHive\Cli\Support\Filesystem;
 use RuntimeException;
 
 use function str_replace;
@@ -214,7 +213,7 @@ final class CreatePackageCommand extends BaseCommand
         }
 
         // Initialize filesystem helper for file operations
-        $filesystem = Filesystem::make();
+        $filesystem = $this->filesystem();
 
         // Create directory structure
         // Packages have a simpler structure than apps (no public/ or config/)

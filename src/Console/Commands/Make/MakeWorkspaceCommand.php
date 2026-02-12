@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace PhpHive\Cli\Console\Commands\Make;
 
 use function exec;
-use function file_exists;
-use function file_get_contents;
-use function file_put_contents;
 use function is_array;
 use function is_dir;
 use function json_decode;
@@ -311,36 +308,34 @@ final class MakeWorkspaceCommand extends BaseCommand
      */
     private function updateWorkspaceConfig(string $name): void
     {
+        $filesystem = $this->filesystem();
+
         // Update package.json
         $packageJsonPath = "{$name}/package.json";
-        if (file_exists($packageJsonPath)) {
-            $content = file_get_contents($packageJsonPath);
-            if ($content !== false) {
-                $packageJson = json_decode($content, true);
-                if (is_array($packageJson)) {
-                    $packageJson['name'] = $name;
-                    file_put_contents(
-                        $packageJsonPath,
-                        json_encode($packageJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"
-                    );
-                }
+        if ($filesystem->exists($packageJsonPath)) {
+            $content = $filesystem->read($packageJsonPath);
+            $packageJson = json_decode($content, true);
+            if (is_array($packageJson)) {
+                $packageJson['name'] = $name;
+                $filesystem->write(
+                    $packageJsonPath,
+                    json_encode($packageJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"
+                );
             }
         }
 
         // Update composer.json
         $composerJsonPath = "{$name}/composer.json";
-        if (file_exists($composerJsonPath)) {
-            $content = file_get_contents($composerJsonPath);
-            if ($content !== false) {
-                $composerJson = json_decode($content, true);
-                if (is_array($composerJson)) {
-                    // Update name to vendor/package format
-                    $composerJson['name'] = "phphive/{$name}";
-                    file_put_contents(
-                        $composerJsonPath,
-                        json_encode($composerJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"
-                    );
-                }
+        if ($filesystem->exists($composerJsonPath)) {
+            $content = $filesystem->read($composerJsonPath);
+            $composerJson = json_decode($content, true);
+            if (is_array($composerJson)) {
+                // Update name to vendor/package format
+                $composerJson['name'] = "phphive/{$name}";
+                $filesystem->write(
+                    $composerJsonPath,
+                    json_encode($composerJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"
+                );
             }
         }
 

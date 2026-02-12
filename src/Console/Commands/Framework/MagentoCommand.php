@@ -255,7 +255,7 @@ final class MagentoCommand extends BaseCommand
 
         // Check if bin/magento file exists in the workspace
         // This confirms the workspace is a Magento installation
-        if (! file_exists("{$workspacePath}/bin/magento")) {
+        if (! $this->filesystem()->exists("{$workspacePath}/bin/magento")) {
             $this->error("Magento CLI not found in workspace '{$workspace}'. Is this a Magento application?");
 
             return Command::FAILURE;

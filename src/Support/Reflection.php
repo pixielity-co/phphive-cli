@@ -15,7 +15,6 @@ use function count;
 use Exception;
 
 use function explode;
-use function file_get_contents;
 use function function_exists;
 
 use Illuminate\Support\Reflector as BaseReflector;
@@ -40,6 +39,7 @@ use ReflectionFunction;
 use ReflectionMethod;
 use ReflectionParameter;
 use ReflectionProperty;
+use RuntimeException;
 
 use function sprintf;
 use function trait_exists;
@@ -305,15 +305,26 @@ final class Reflection extends BaseReflector
      * This method takes into account potential conflicts with docblocks by ensuring that only
      * the actual class declaration is matched. The returned class name is normalized.
      *
+     * Uses the Filesystem service for file operations to ensure consistent error handling
+     * and better testability.
+     *
      * @param  string      $file_path The path to the PHP file.
      * @return string|null The normalized fully qualified class name, or null if not found.
      */
     public static function getFullyQualifiedClassName(string $file_path): ?string
     {
-        // Read the file contents
-        $file_contents = file_get_contents($file_path);
+        // Get Filesystem instance
+        $filesystem = Filesystem::make();
 
-        if ($file_contents === false) {
+        // Check if file exists
+        if (! $filesystem->exists($file_path)) {
+            return null;
+        }
+
+        // Read the file contents using Filesystem service
+        try {
+            $file_contents = $filesystem->read($file_path);
+        } catch (RuntimeException) {
             return null;
         }
 

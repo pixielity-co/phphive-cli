@@ -11,6 +11,7 @@ use function Laravel\Prompts\select;
 use function Laravel\Prompts\text;
 
 use PhpHive\Cli\Contracts\AppTypeInterface;
+use PhpHive\Cli\Support\Filesystem;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -27,6 +28,12 @@ use Symfony\Component\Console\Output\OutputInterface;
  * - Handle name normalization and namespace generation
  * - Manage stub paths and variable replacement
  * - Define common configuration patterns
+ * - Provide Filesystem abstraction for file operations
+ *
+ * File Operations:
+ * All file operations should use the Filesystem class via $this->filesystem()
+ * instead of raw PHP file_* functions. This provides better error handling,
+ * testability, and consistency across the codebase.
  *
  * Each concrete app type (LaravelAppType, SymfonyAppType, etc.) extends this
  * class and implements the AppTypeInterface methods to define its specific
@@ -38,15 +45,33 @@ use Symfony\Component\Console\Output\OutputInterface;
  *     public function collectConfiguration(...) {
  *         $name = $this->askText('App name', 'my-app');
  *         $useDb = $this->askConfirm('Use database?');
+ *
+ *         // Use Filesystem for file operations
+ *         if ($this->filesystem()->exists('/path/to/config')) {
+ *             $config = $this->filesystem()->read('/path/to/config');
+ *         }
+ *
  *         return compact('name', 'useDb');
  *     }
  * }
  * ```
  *
  * @see AppTypeInterface
+ * @see Filesystem
  */
 abstract class AbstractAppType implements AppTypeInterface
 {
+    /**
+     * Filesystem instance for file operations.
+     *
+     * Lazy-loaded instance of the Filesystem class used for all file operations
+     * within AppType classes. This provides a consistent, testable interface for
+     * file system interactions instead of using raw PHP file_* functions.
+     *
+     * @see Filesystem
+     */
+    protected Filesystem $filesystem;
+
     /**
      * Symfony Console input interface.
      *
@@ -84,6 +109,39 @@ abstract class AbstractAppType implements AppTypeInterface
     public function getPreInstallCommands(array $config): array
     {
         return [];
+    }
+
+    /**
+     * Get or create the Filesystem instance.
+     *
+     * Returns a lazy-loaded Filesystem instance for performing file operations.
+     * The instance is created on first access and reused for subsequent calls.
+     *
+     * This method provides a consistent interface for file operations across all
+     * AppType classes, replacing raw PHP file_* functions with a testable,
+     * object-oriented API.
+     *
+     * Example usage:
+     * ```php
+     * // Check if file exists
+     * if ($this->filesystem()->exists('/path/to/file')) {
+     *     // Read file contents
+     *     $content = $this->filesystem()->read('/path/to/file');
+     * }
+     *
+     * // Write file contents
+     * $this->filesystem()->write('/path/to/file', 'content');
+     * ```
+     *
+     * @return Filesystem The Filesystem instance for file operations
+     */
+    protected function filesystem(): Filesystem
+    {
+        if (! isset($this->filesystem)) {
+            $this->filesystem = new Filesystem();
+        }
+
+        return $this->filesystem;
     }
 
     /**

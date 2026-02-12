@@ -127,7 +127,7 @@ trait InteractsWithMeilisearch
     protected function setupMeilisearch(string $appName, string $appPath): array
     {
         // Check if Docker is available (requires InteractsWithDocker trait)
-        if (method_exists($this, 'isDockerAvailable') && $this->isDockerAvailable()) {
+        if ($this->isDockerAvailable()) {
             // Docker is available - offer Docker setup
             note(
                 'Docker detected! Using Docker provides isolated Meilisearch instances, easy management, and no local installation needed.',
@@ -148,14 +148,14 @@ trait InteractsWithMeilisearch
                 // Docker setup failed, fall back to local
                 warning('Docker setup failed. Falling back to local Meilisearch setup.');
             }
-        } elseif (method_exists($this, 'isDockerInstalled') && ! $this->isDockerInstalled()) {
+        } elseif (! $this->isDockerInstalled()) {
             // Docker not installed - offer installation guidance
             $installDocker = confirm(
                 label: 'Docker is not installed. Would you like to see installation instructions?',
                 default: false
             );
 
-            if ($installDocker && method_exists($this, 'provideDockerInstallationGuidance')) {
+            if ($installDocker) {
                 $this->provideDockerInstallationGuidance();
                 info('After installing Docker, you can recreate this application to use Docker.');
             }
@@ -246,12 +246,6 @@ trait InteractsWithMeilisearch
         // =====================================================================
 
         info('Starting Meilisearch container...');
-
-        if (! method_exists($this, 'startDockerContainers')) {
-            error('InteractsWithDocker trait is required for Docker setup');
-
-            return null;
-        }
 
         $started = spin(
             callback: fn (): bool => $this->startDockerContainers($appPath),
@@ -376,7 +370,7 @@ YAML;
 
             // Append Meilisearch service to services section
             // Find the position to insert (before volumes section or at end)
-            if (preg_match('/^volumes:/m', $existingContent)) {
+            if (preg_match('/^volumes:/m', $existingContent) === 1) {
                 // Insert before volumes section
                 $existingContent = preg_replace(
                     '/^(volumes:)/m',
@@ -575,7 +569,7 @@ YAML;
      */
     protected function provideMeilisearchInstallationGuidance(): void
     {
-        $os = method_exists($this, 'detectOS') ? $this->detectOS() : 'unknown';
+        $os = $this->detectOS();
 
         note(
             'Meilisearch is not running. Meilisearch provides lightning-fast search for your applications.',

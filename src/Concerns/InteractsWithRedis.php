@@ -9,27 +9,27 @@ use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\note;
 use function Laravel\Prompts\password;
-use function Laravel\Prompts\select;
 use function Laravel\Prompts\spin;
 use function Laravel\Prompts\text;
 use function Laravel\Prompts\warning;
 
-use Symfony\Component\Process\Process;
+use PhpHive\Cli\Support\Filesystem;
+use RuntimeException;
 
 /**
  * Redis Interaction Trait.
  *
  * This trait provides comprehensive Redis setup functionality for application
- * types that require Redis caching or session storage. It supports both Docker-based
- * and local Redis setups with automatic configuration and graceful fallbacks.
+ * types that require caching and session storage configuration. It supports
+ * both Docker-based and local Redis setups with automatic configuration and
+ * graceful fallbacks.
  *
  * Key features:
  * - Docker-first approach: Recommends Docker when available
- * - Multiple Redis configurations: Standalone, Sentinel, Cluster
- * - Automatic Docker Compose file generation
+ * - Automatic Docker Compose integration
  * - Container management and health checking
+ * - Secure password generation
  * - Local Redis fallback for non-Docker setups
- * - Secure password generation for Docker Redis
  * - Graceful error handling with fallback options
  * - Detailed user feedback using Laravel Prompts
  * - Reusable across multiple app types (Magento, Laravel, Symfony, etc.)
@@ -37,19 +37,19 @@ use Symfony\Component\Process\Process;
  * Docker-first workflow:
  * 1. Check if Docker is available
  * 2. If yes, offer Docker Redis setup (recommended)
- * 3. Prompt for Redis configuration type (Standalone, Sentinel, Cluster)
+ * 3. Generate secure password
  * 4. Generate docker-compose section for Redis
- * 5. Start Docker containers
- * 6. Wait for Redis to be ready
- * 7. Return connection details
+ * 5. Start Docker container
+ * 6. Wait for Redis to be ready (health check)
+ * 7. Return connection details with password
  * 8. If Docker unavailable or user declines, fall back to local setup
  *
  * Local Redis workflow:
- * 1. Check if Redis is installed and running locally
- * 2. Prompt for connection details (host, port, password)
- * 3. Test Redis connection
- * 4. Return credentials for application configuration
- * 5. If connection fails, fall back to manual prompts
+ * 1. Assume Redis is installed and running locally
+ * 2. Prompt for Redis host and port
+ * 3. Prompt for password (if configured)
+ * 4. Return configuration for application
+ * 5. Provide installation guidance if needed
  *
  * Example usage:
  * ```php
@@ -67,19 +67,21 @@ use Symfony\Component\Process\Process;
  *         $this->output = $output;
  *
  *         // Orchestrate Redis setup (Docker-first)
- *         $redisConfig = $this->setupRedis('my-app', '/path/to/app');
+ *         $cacheConfig = $this->setupRedis('my-app', '/path/to/app');
  *
- *         return $redisConfig;
+ *         return $cacheConfig;
  *     }
  * }
  * ```
  *
  * Security considerations:
- * - Passwords are generated securely using random_bytes()
- * - Passwords are masked during input
+ * - Passwords are generated using cryptographically secure random bytes
+ * - Passwords are 32 characters long (hex-encoded 16 bytes)
  * - Docker containers are isolated per project
- * - Connection attempts are limited to prevent brute force
- * - Redis AUTH is enforced for Docker containers
+ * - Connection attempts include health checks
+ * - Password authentication is enforced in Docker setup
+ *
+ * @phpstan-ignore-next-line trait.unused
  *
  * @see AbstractAppType For base app type functionality
  * @see InteractsWithDocker For Docker management functionality
@@ -87,6 +89,17 @@ use Symfony\Component\Process\Process;
  */
 trait InteractsWithRedis
 {
+    /**
+     * Get the Filesystem service instance.
+     *
+     * This method provides access to the Filesystem service for file operations.
+     * It should be implemented by the class using this trait to return the
+     * appropriate Filesystem instance from the dependency injection container.
+     *
+     * @return Filesystem The Filesystem service instance
+     */
+    abstract protected function filesystem(): Filesystem;
+
     /**
      * Orchestrate Redis setup with Docker-first approach.
      *
@@ -104,19 +117,20 @@ trait InteractsWithRedis
      *    - Show installation guidance (optional)
      *    - Fall back to setupLocalRedis()
      *
-     * Supported Redis configurations:
-     * - standalone: Single Redis instance (default)
-     * - sentinel: Redis Sentinel for high availability
-     * - cluster: Redis Cluster for horizontal scaling
+     * Redis features:
+     * - In-memory data structure store
+     * - Caching and session storage
+     * - Pub/Sub messaging
+     * - Persistence options (RDB, AOF)
+     * - High performance and scalability
      *
      * Return value structure:
      * ```php
      * [
-     *     'redis_host' => 'localhost',        // Host (localhost for Docker)
-     *     'redis_port' => 6379,               // Port
-     *     'redis_password' => 'password',     // Password (empty for no auth)
-     *     'using_docker' => true,             // Whether Docker is used
-     *     'redis_mode' => 'standalone',       // Configuration mode
+     *     'redis_host' => 'localhost',      // Host
+     *     'redis_port' => 6379,             // Port
+     *     'redis_password' => 'password',   // Password (optional)
+     *     'using_docker' => true,           // Whether Docker is used
      * ]
      * ```
      *
@@ -127,7 +141,8 @@ trait InteractsWithRedis
     protected function setupRedis(string $appName, string $appPath): array
     {
         // Check if Docker is available (requires InteractsWithDocker trait)
-        if (method_exists($this, 'isDockerAvailable') && $this->isDockerAvailable()) {
+
+        if ($this->isDockerAvailable()) {
             // Docker is available - offer Docker setup
             note(
                 'Docker detected! Using Docker provides isolated Redis instances, easy management, and no local installation needed.',
@@ -140,22 +155,23 @@ trait InteractsWithRedis
             );
 
             if ($useDocker) {
-                $redisConfig = $this->setupDockerRedis($appName, $appPath);
-                if ($redisConfig !== null) {
-                    return $redisConfig;
+                $cacheConfig = $this->setupDockerRedis($appName, $appPath);
+                if ($cacheConfig !== null) {
+                    return $cacheConfig;
                 }
 
                 // Docker setup failed, fall back to local
                 warning('Docker setup failed. Falling back to local Redis setup.');
             }
-        } elseif (method_exists($this, 'isDockerInstalled') && ! $this->isDockerInstalled()) {
+
+        } elseif (! $this->isDockerInstalled()) {
             // Docker not installed - offer installation guidance
             $installDocker = confirm(
                 label: 'Docker is not installed. Would you like to see installation instructions?',
                 default: false
             );
 
-            if ($installDocker && method_exists($this, 'provideDockerInstallationGuidance')) {
+            if ($installDocker) {
                 $this->provideDockerInstallationGuidance();
                 info('After installing Docker, you can recreate this application to use Docker.');
             }
@@ -166,22 +182,27 @@ trait InteractsWithRedis
     }
 
     /**
-     * Set up Redis using Docker containers.
+     * Set up Redis using Docker container.
      *
-     * Creates a Docker Compose configuration with Redis and starts the
-     * containers. Supports standalone, Sentinel, and Cluster configurations.
+     * Creates a Docker Compose configuration with Redis service
+     * and starts the container. Includes health checking to ensure
+     * Redis is ready before returning.
      *
      * Process:
-     * 1. Prompt for Redis configuration type (if advanced features desired)
-     * 2. Generate secure password for Redis AUTH
+     * 1. Generate secure password
+     * 2. Prompt for port configuration (default: 6379)
      * 3. Generate docker-compose.yml section for Redis
-     * 4. Start Docker containers
-     * 5. Wait for Redis to be ready
-     * 6. Return connection details
+     * 4. Start Docker container
+     * 5. Wait for Redis to be ready (health check)
+     * 6. Return connection details with password
      *
-     * Generated files:
-     * - docker-compose.yml: Container configuration (appended or created)
-     * - redis.conf: Redis configuration file (optional)
+     * Generated configuration:
+     * - Service name: redis
+     * - Image: redis:7-alpine
+     * - Port: 6379 (default, configurable)
+     * - Volume: Persistent data storage with AOF
+     * - Command: redis-server with password and persistence
+     * - Health check: redis-cli ping
      *
      * Container naming:
      * - Format: phphive-{app-name}-redis
@@ -199,91 +220,48 @@ trait InteractsWithRedis
         }
 
         // =====================================================================
-        // REDIS CONFIGURATION TYPE
+        // CONFIGURATION
         // =====================================================================
 
-        $advancedSetup = confirm(
-            label: 'Do you need advanced Redis features? (Sentinel/Cluster)',
-            default: false
-        );
+        info('Configuring Redis...');
 
-        $redisMode = 'standalone';
-        if ($advancedSetup) {
-            $redisMode = (string) select(
-                label: 'Select Redis configuration',
-                options: [
-                    'standalone' => 'Standalone (Single instance, recommended)',
-                    'sentinel' => 'Sentinel (High availability with automatic failover)',
-                    'cluster' => 'Cluster (Horizontal scaling with sharding)',
-                ],
-                default: 'standalone'
-            );
-        } else {
-            info('Using standalone Redis configuration');
-        }
+        // Generate secure password (32 characters hex)
+        $password = bin2hex(random_bytes(16));
 
-        // =====================================================================
-        // SECURITY CONFIGURATION
-        // =====================================================================
-
-        $usePassword = confirm(
-            label: 'Enable Redis password authentication?',
-            default: true
-        );
-
-        $redisPassword = '';
-        if ($usePassword) {
-            // Generate secure password
-            $redisPassword = bin2hex(random_bytes(16));
-            info('Generated secure Redis password');
-        } else {
-            warning('Redis will run without password authentication (not recommended for production)');
-        }
-
-        // =====================================================================
-        // PORT CONFIGURATION
-        // =====================================================================
-
+        // Prompt for port configuration
         $portInput = text(
             label: 'Redis port',
             placeholder: '6379',
             default: '6379',
             required: true,
-            hint: 'Port to expose Redis on localhost'
+            hint: 'Port for Redis server'
         );
-        $redisPort = (int) $portInput;
+        $port = (int) $portInput;
 
         // =====================================================================
-        // GENERATE DOCKER COMPOSE CONFIGURATION
+        // GENERATE DOCKER COMPOSE FILE
         // =====================================================================
 
-        info('Generating Docker Compose configuration for Redis...');
+        info('Generating docker-compose.yml...');
 
-        $composeGenerated = $this->generateRedisDockerCompose(
+        $composeGenerated = $this->generateRedisDockerComposeFile(
             $appPath,
             $appName,
-            $redisMode,
-            $redisPassword,
-            $redisPort
+            $port,
+            $password
         );
 
         if (! $composeGenerated) {
-            error('Failed to generate Docker Compose configuration');
+            error('Failed to generate docker-compose.yml');
 
             return null;
         }
 
         // =====================================================================
-        // START CONTAINERS
+        // START CONTAINER
         // =====================================================================
 
         info('Starting Redis container...');
-
-        if (! method_exists($this, 'startDockerContainers')) {
-            error('InteractsWithDocker trait is required for Docker setup');
-
-            return null;
-        }
 
         $started = spin(
             callback: fn (): bool => $this->startDockerContainers($appPath),
@@ -297,13 +275,13 @@ trait InteractsWithRedis
         }
 
         // =====================================================================
-        // WAIT FOR REDIS
+        // WAIT FOR REDIS TO BE READY
         // =====================================================================
 
         info('Waiting for Redis to be ready...');
 
         $ready = spin(
-            callback: fn (): bool => $this->waitForRedisReady($appPath, 'redis', $redisPassword, 30),
+            callback: fn (): bool => $this->waitForDockerService($appPath, 'redis', 30),
             message: 'Waiting for Redis...'
         );
 
@@ -318,275 +296,106 @@ trait InteractsWithRedis
         // =====================================================================
 
         info('✓ Docker Redis setup complete!');
-        info("Redis connection: localhost:{$redisPort}");
-        if ($usePassword) {
-            info("Redis password: {$redisPassword}");
-        }
+        info("Redis connection: localhost:{$port}");
+        info("Redis password: {$password}");
 
         return [
             'redis_host' => 'localhost',
-            'redis_port' => $redisPort,
-            'redis_password' => $redisPassword,
+            'redis_port' => $port,
+            'redis_password' => $password,
             'using_docker' => true,
-            'redis_mode' => $redisMode,
         ];
     }
 
     /**
-     * Generate Docker Compose configuration for Redis.
+     * Generate docker-compose.yml file from template.
      *
-     * Creates or appends to docker-compose.yml file with Redis service
-     * configuration. Supports standalone, Sentinel, and Cluster modes.
+     * Reads the Redis template file, replaces placeholders with actual values,
+     * and writes the docker-compose.yml file to the application directory.
+     * If a docker-compose.yml already exists, it appends the Redis service.
      *
-     * Configuration includes:
-     * - Redis service with appropriate image
-     * - Volume for data persistence
-     * - Network configuration
-     * - Health check
-     * - Password authentication (if enabled)
-     * - Port mapping
+     * Template placeholders:
+     * - {{CONTAINER_PREFIX}}: phphive-{app-name}
+     * - {{VOLUME_PREFIX}}: phphive-{app-name}
+     * - {{NETWORK_NAME}}: phphive-{app-name}
+     * - {{REDIS_PORT}}: Redis port (6379)
+     * - {{REDIS_PASSWORD}}: Redis password
      *
-     * @param  string $appPath       Application directory path
-     * @param  string $appName       Application name
-     * @param  string $redisMode     Redis mode (standalone, sentinel, cluster)
-     * @param  string $redisPassword Redis password (empty for no auth)
-     * @param  int    $redisPort     Redis port
+     * @param  string $appPath  Application directory path
+     * @param  string $appName  Application name
+     * @param  int    $port     Redis port
+     * @param  string $password Redis password
      * @return bool   True on success, false on failure
      */
-    protected function generateRedisDockerCompose(
+    protected function generateRedisDockerComposeFile(
         string $appPath,
         string $appName,
-        string $redisMode,
-        string $redisPassword,
-        int $redisPort
+        int $port,
+        string $password
     ): bool {
-        // Normalize app name for container/volume names
-        $normalizedName = strtolower(preg_replace('/[^a-zA-Z0-9]/', '-', $appName) ?? $appName);
+        // Get template path
+        $templatePath = dirname(__DIR__, 2) . '/stubs/docker/redis.yml';
 
-        // Build Redis command based on configuration
-        $redisCommand = [];
-        if ($redisPassword !== '') {
-            $redisCommand[] = 'redis-server';
-            $redisCommand[] = '--requirepass';
-            $redisCommand[] = $redisPassword;
-        }
-
-        // Build Docker Compose service configuration
-        $redisService = [
-            'redis' => [
-                'image' => 'redis:7-alpine',
-                'container_name' => "phphive-{$normalizedName}-redis",
-                'ports' => ["{$redisPort}:6379"],
-                'volumes' => ["phphive-{$normalizedName}-redis-data:/data"],
-                'networks' => ["phphive-{$normalizedName}"],
-                'healthcheck' => [
-                    'test' => $redisPassword !== ''
-                        ? ['CMD', 'redis-cli', '--raw', 'incr', 'ping']
-                        : ['CMD', 'redis-cli', 'ping'],
-                    'interval' => '10s',
-                    'timeout' => '3s',
-                    'retries' => 3,
-                ],
-                'restart' => 'unless-stopped',
-            ],
-        ];
-
-        // Add command if password is set
-        if ($redisCommand !== []) {
-            $redisService['redis']['command'] = $redisCommand;
-        }
-
-        // Add Sentinel configuration if needed
-        if ($redisMode === 'sentinel') {
-            // Add Sentinel services (simplified for this example)
-            info('Note: Sentinel configuration requires additional setup. Using standalone for now.');
-        }
-
-        // Add Cluster configuration if needed
-        if ($redisMode === 'cluster') {
-            // Add Cluster nodes (simplified for this example)
-            info('Note: Cluster configuration requires additional setup. Using standalone for now.');
-        }
-
-        // Check if docker-compose.yml exists
-        $composePath = $appPath . '/docker-compose.yml';
-        $composeExists = file_exists($composePath);
-
-        if ($composeExists) {
-            // Append to existing docker-compose.yml
-            return $this->appendRedisToDockerCompose($composePath, $redisService, $normalizedName);
-        }
-
-        // Create new docker-compose.yml
-        return $this->createRedisDockerCompose($composePath, $redisService, $normalizedName);
-    }
-
-    /**
-     * Append Redis service to existing docker-compose.yml.
-     *
-     * Reads the existing docker-compose.yml, adds the Redis service,
-     * and writes it back. Handles YAML formatting carefully.
-     *
-     * @param  string $composePath    Path to docker-compose.yml
-     * @param  array  $redisService   Redis service configuration
-     * @param  string $normalizedName Normalized app name
-     * @return bool   True on success, false on failure
-     */
-    protected function appendRedisToDockerCompose(string $composePath, array $redisService, string $normalizedName): bool
-    {
-        // Read existing docker-compose.yml
-        $content = file_get_contents($composePath);
-        if ($content === false) {
+        if (! $this->filesystem()->exists($templatePath)) {
             return false;
         }
 
-        // Simple YAML append (for production, consider using symfony/yaml)
-        $redisYaml = $this->convertRedisServiceToYaml($redisService, $normalizedName);
-
-        // Append Redis service
-        $content .= "\n" . $redisYaml;
-
-        // Write back
-        return file_put_contents($composePath, $content) !== false;
-    }
-
-    /**
-     * Create new docker-compose.yml with Redis service.
-     *
-     * Generates a complete docker-compose.yml file with Redis service,
-     * volumes, and networks.
-     *
-     * @param  string $composePath    Path to docker-compose.yml
-     * @param  array  $redisService   Redis service configuration
-     * @param  string $normalizedName Normalized app name
-     * @return bool   True on success, false on failure
-     */
-    protected function createRedisDockerCompose(string $composePath, array $redisService, string $normalizedName): bool
-    {
-        $yaml = "version: '3.8'\n\n";
-        $yaml .= "services:\n";
-        $yaml .= $this->convertRedisServiceToYaml($redisService, $normalizedName);
-        $yaml .= "\nvolumes:\n";
-        $yaml .= "  phphive-{$normalizedName}-redis-data:\n";
-        $yaml .= "    driver: local\n";
-        $yaml .= "\nnetworks:\n";
-        $yaml .= "  phphive-{$normalizedName}:\n";
-        $yaml .= "    driver: bridge\n";
-
-        return file_put_contents($composePath, $yaml) !== false;
-    }
-
-    /**
-     * Convert Redis service array to YAML format.
-     *
-     * Simple YAML converter for Redis service configuration.
-     * For production use, consider symfony/yaml component.
-     *
-     * @param  array  $redisService   Redis service configuration
-     * @param  string $normalizedName Normalized app name
-     * @return string YAML formatted string
-     */
-    protected function convertRedisServiceToYaml(array $redisService, string $normalizedName): string
-    {
-        $yaml = "  redis:\n";
-        $yaml .= "    image: redis:7-alpine\n";
-        $yaml .= "    container_name: phphive-{$normalizedName}-redis\n";
-        $yaml .= "    ports:\n";
-        $yaml .= "      - \"{$redisService['redis']['ports'][0]}\"\n";
-
-        if (isset($redisService['redis']['command'])) {
-            $yaml .= "    command:\n";
-            foreach ($redisService['redis']['command'] as $cmd) {
-                $yaml .= "      - \"{$cmd}\"\n";
-            }
+        // Read template using Filesystem
+        try {
+            $template = $this->filesystem()->read($templatePath);
+        } catch (RuntimeException) {
+            return false;
         }
 
-        $yaml .= "    volumes:\n";
-        $yaml .= "      - phphive-{$normalizedName}-redis-data:/data\n";
-        $yaml .= "    networks:\n";
-        $yaml .= "      - phphive-{$normalizedName}\n";
-        $yaml .= "    healthcheck:\n";
-        $yaml .= "      test:\n";
-        foreach ($redisService['redis']['healthcheck']['test'] as $test) {
-            $yaml .= "        - \"{$test}\"\n";
+        // Normalize app name for container/volume names
+        $normalizedName = strtolower(preg_replace('/[^a-zA-Z0-9]/', '-', $appName) ?? $appName);
+
+        // Replace placeholders
+        $replacements = [
+            '{{CONTAINER_PREFIX}}' => "phphive-{$normalizedName}",
+            '{{VOLUME_PREFIX}}' => "phphive-{$normalizedName}",
+            '{{NETWORK_NAME}}' => "phphive-{$normalizedName}",
+            '{{REDIS_PORT}}' => (string) $port,
+            '{{REDIS_PASSWORD}}' => $password,
+        ];
+
+        $content = str_replace(array_keys($replacements), array_values($replacements), $template);
+
+        // Write docker-compose.yml using Filesystem
+        $outputPath = $appPath . '/docker-compose.yml';
+
+        try {
+            $this->filesystem()->write($outputPath, $content);
+
+            return true;
+        } catch (RuntimeException) {
+            return false;
         }
-        $yaml .= "      interval: 10s\n";
-        $yaml .= "      timeout: 3s\n";
-        $yaml .= "      retries: 3\n";
-
-        return $yaml . "    restart: unless-stopped\n";
-    }
-
-    /**
-     * Wait for Redis to be ready and accepting connections.
-     *
-     * Polls the Redis container until it responds to PING command.
-     * Uses docker compose exec to run redis-cli inside the container.
-     *
-     * Polling strategy:
-     * - Maximum attempts: 30 (configurable)
-     * - Delay between attempts: 2 seconds
-     * - Total maximum wait: 60 seconds
-     *
-     * Health check:
-     * - Execute 'redis-cli ping' (or with AUTH if password set)
-     * - Expect 'PONG' response
-     * - Return true if successful
-     *
-     * @param  string $appPath     Absolute path to application directory
-     * @param  string $serviceName Name of Redis service in docker-compose.yml
-     * @param  string $password    Redis password (empty for no auth)
-     * @param  int    $maxAttempts Maximum number of polling attempts
-     * @return bool   True if Redis is ready, false if timeout
-     */
-    protected function waitForRedisReady(
-        string $appPath,
-        string $serviceName,
-        string $password = '',
-        int $maxAttempts = 30
-    ): bool {
-        $attempts = 0;
-
-        while ($attempts < $maxAttempts) {
-            // Build redis-cli command
-            $command = ['docker', 'compose', 'exec', '-T', $serviceName];
-
-            if ($password !== '') {
-                // With authentication
-                $command = array_merge($command, ['redis-cli', '-a', $password, 'ping']);
-            } else {
-                // Without authentication
-                $command = array_merge($command, ['redis-cli', 'ping']);
-            }
-
-            // Execute command
-            $process = new Process($command, $appPath);
-            $process->run();
-
-            // Check if Redis responded with PONG
-            if ($process->isSuccessful() && str_contains($process->getOutput(), 'PONG')) {
-                return true;
-            }
-
-            // Wait 2 seconds before next attempt
-            sleep(2);
-            $attempts++;
-        }
-
-        return false;
     }
 
     /**
      * Set up Redis using local installation.
      *
      * Falls back to local Redis setup when Docker is not available
-     * or user prefers local installation. Offers automatic detection
-     * or manual configuration.
+     * or user prefers local installation. Prompts for connection details
+     * and password configuration.
      *
      * Process:
-     * 1. Check if Redis is running locally
-     * 2. If yes → Test connection and return details
-     * 3. If no → Prompt for manual configuration
+     * 1. Display informational note about local setup
+     * 2. Check if user wants to configure manually or use defaults
+     * 3. Prompt for Redis connection details
+     * 4. Prompt for password (if configured)
+     * 5. Return configuration array
+     *
+     * Local installation requirements:
+     * - Redis must be installed and running
+     * - Default port: 6379
+     * - Password is optional but recommended
+     *
+     * Installation guidance:
+     * - macOS: brew install redis
+     * - Linux: apt-get install redis-server / yum install redis
+     * - Windows: Download from GitHub releases or use WSL
      *
      * @param  string $appName Application name
      * @return array  Redis configuration array
@@ -594,100 +403,55 @@ trait InteractsWithRedis
     protected function setupLocalRedis(string $appName): array
     {
         note(
-            'Setting up local Redis connection. Ensure Redis is installed and running.',
+            'Setting up local Redis. Ensure Redis is installed and running.',
             'Local Redis Setup'
         );
 
-        // Check if Redis is running locally
-        $localRedisRunning = $this->checkLocalRedis('127.0.0.1', 6379);
+        // Check if user wants automatic configuration
+        $autoConfig = confirm(
+            label: 'Is Redis already running locally?',
+            default: false
+        );
 
-        if ($localRedisRunning) {
-            info('✓ Local Redis detected on 127.0.0.1:6379');
-
-            $useLocal = confirm(
-                label: 'Use local Redis instance?',
-                default: true
-            );
-
-            if ($useLocal) {
-                // Prompt for password if needed
-                $hasPassword = confirm(
-                    label: 'Does your Redis instance require a password?',
-                    default: false
-                );
-
-                $redisPassword = '';
-                if ($hasPassword) {
-                    $redisPassword = password(
-                        label: 'Redis password',
-                        required: true
-                    );
-                }
-
-                return [
-                    'redis_host' => '127.0.0.1',
-                    'redis_port' => 6379,
-                    'redis_password' => $redisPassword,
-                    'using_docker' => false,
-                    'redis_mode' => 'standalone',
-                ];
-            }
-        } else {
-            warning('Local Redis not detected on default port 6379');
+        if (! $autoConfig) {
+            // Provide installation guidance
             $this->provideRedisInstallationGuidance();
+
+            info('After installing and starting Redis, please configure the connection details.');
         }
 
-        // Fall back to manual configuration
+        // Prompt for manual configuration
         return $this->promptRedisConfiguration($appName);
-    }
-
-    /**
-     * Check if local Redis is running and accessible.
-     *
-     * Attempts to connect to Redis using redis-cli or socket connection
-     * to verify that Redis is running locally.
-     *
-     * Detection methods:
-     * 1. Try redis-cli ping command
-     * 2. Try socket connection to Redis port
-     *
-     * @param  string $host Redis host
-     * @param  int    $port Redis port
-     * @return bool   True if Redis is accessible, false otherwise
-     */
-    protected function checkLocalRedis(string $host, int $port): bool
-    {
-        // Try redis-cli first
-        $process = new Process(['redis-cli', '-h', $host, '-p', (string) $port, 'ping']);
-        $process->run();
-
-        if ($process->isSuccessful() && str_contains($process->getOutput(), 'PONG')) {
-            return true;
-        }
-
-        // Try socket connection
-        $socket = @fsockopen($host, $port, $errno, $errstr, 2);
-        if ($socket !== false) {
-            fclose($socket);
-
-            return true;
-        }
-
-        return false;
     }
 
     /**
      * Provide Redis installation guidance based on operating system.
      *
      * Displays helpful information and instructions for installing Redis
-     * on the user's operating system.
+     * on the user's operating system. Includes download links, installation
+     * methods, and verification steps.
+     *
+     * Installation guidance by OS:
+     *
+     * macOS:
+     * - Homebrew installation (recommended)
+     * - Verification and startup commands
+     *
+     * Linux:
+     * - Package manager installation
+     * - Systemd service setup
+     *
+     * Windows:
+     * - WSL installation (recommended)
+     * - Native Windows port
      */
     protected function provideRedisInstallationGuidance(): void
     {
-        $os = method_exists($this, 'detectOS') ? $this->detectOS() : 'unknown';
+
+        $os = $this->detectOS();
 
         note(
-            'Redis is not running locally. Install Redis to use it without Docker.',
+            'Redis is not running. Redis provides high-performance caching and session storage.',
             'Redis Not Available'
         );
 
@@ -704,15 +468,16 @@ trait InteractsWithRedis
      */
     protected function provideMacOSRedisGuidance(): void
     {
-        info('macOS Redis Installation:');
+        info('macOS Installation:');
         info('');
-        info('Using Homebrew:');
+        info('Homebrew (Recommended):');
         info('  brew install redis');
         info('  brew services start redis');
         info('');
-        info('Verify installation:');
-        info('  redis-cli ping');
-        info('  (should return PONG)');
+        info('After installation:');
+        info('  1. Redis will start automatically');
+        info('  2. Verify with: redis-cli ping');
+        info('  3. Documentation: https://redis.io/docs');
     }
 
     /**
@@ -720,19 +485,20 @@ trait InteractsWithRedis
      */
     protected function provideLinuxRedisGuidance(): void
     {
-        info('Linux Redis Installation:');
+        info('Linux Installation:');
         info('');
         info('Ubuntu/Debian:');
-        info('  sudo apt update');
-        info('  sudo apt install redis-server');
+        info('  sudo apt-get update');
+        info('  sudo apt-get install redis-server');
         info('  sudo systemctl start redis-server');
         info('');
-        info('Fedora/RHEL/CentOS:');
-        info('  sudo dnf install redis');
+        info('RHEL/CentOS:');
+        info('  sudo yum install redis');
         info('  sudo systemctl start redis');
         info('');
-        info('Verify installation:');
-        info('  redis-cli ping');
+        info('After installation:');
+        info('  1. Verify with: redis-cli ping');
+        info('  2. Documentation: https://redis.io/docs');
     }
 
     /**
@@ -740,16 +506,19 @@ trait InteractsWithRedis
      */
     protected function provideWindowsRedisGuidance(): void
     {
-        info('Windows Redis Installation:');
+        info('Windows Installation:');
         info('');
-        info('Option 1: WSL2 (Recommended)');
-        info('  Install Redis in WSL2 Ubuntu:');
-        info('  sudo apt update && sudo apt install redis-server');
-        info('  sudo service redis-server start');
+        info('Option 1: WSL (Recommended):');
+        info('  1. Install WSL2');
+        info('  2. Follow Linux installation steps');
         info('');
-        info('Option 2: Windows Port');
-        info('  Download from: https://github.com/microsoftarchive/redis/releases');
-        info('  Note: Official Redis does not support Windows natively');
+        info('Option 2: Native Windows Port:');
+        info('  1. Download from: https://github.com/microsoftarchive/redis/releases');
+        info('  2. Extract and run redis-server.exe');
+        info('');
+        info('After installation:');
+        info('  1. Verify with: redis-cli ping');
+        info('  2. Documentation: https://redis.io/docs');
     }
 
     /**
@@ -762,44 +531,45 @@ trait InteractsWithRedis
         info('Visit the official Redis documentation:');
         info('  https://redis.io/docs/getting-started/installation/');
         info('');
-        info('After installation, verify with: redis-cli ping');
+        info('After installation, verify with:');
+        info('  redis-cli ping');
     }
 
     /**
      * Prompt user for manual Redis configuration.
      *
-     * This method provides a fallback when automatic Redis setup fails or
-     * is not desired. It prompts the user to manually enter Redis connection
-     * details for an existing Redis instance.
+     * This method provides configuration prompts when automatic setup
+     * is not available or desired. It prompts the user to enter Redis
+     * connection details for an existing installation.
      *
      * Use cases:
-     * - User prefers to configure Redis manually
-     * - Automatic setup failed (connection issues)
-     * - Redis already exists
+     * - User prefers manual configuration
+     * - Automatic setup failed
+     * - Redis already running
      * - Using remote Redis server
-     * - Using managed Redis service (ElastiCache, Cloud Memorystore, etc.)
+     * - Using managed Redis service
      *
      * Interactive prompts:
-     * 1. Redis host (default: 127.0.0.1)
+     * 1. Redis host (default: localhost)
      * 2. Redis port (default: 6379)
-     * 3. Redis password (optional, masked input)
+     * 3. Redis password (optional)
      *
      * Return value structure:
      * ```php
      * [
-     *     'redis_host' => '127.0.0.1',
+     *     'redis_host' => 'localhost',
      *     'redis_port' => 6379,
      *     'redis_password' => 'password',
      *     'using_docker' => false,
-     *     'redis_mode' => 'standalone',
      * ]
      * ```
      *
      * Non-interactive mode:
      * - Returns defaults for all values
-     * - Host: 127.0.0.1, Port: 6379, Password: empty
+     * - Host: localhost, Port: 6379
+     * - Password: empty
      *
-     * @param  string $appName Application name (unused but kept for consistency)
+     * @param  string $appName Application name (used for context)
      * @return array  Redis configuration array with user-provided values
      */
     protected function promptRedisConfiguration(string $appName): array
@@ -808,17 +578,16 @@ trait InteractsWithRedis
         if (! $this->input->isInteractive()) {
             // Return defaults for non-interactive mode
             return [
-                'redis_host' => '127.0.0.1',
+                'redis_host' => 'localhost',
                 'redis_port' => 6379,
                 'redis_password' => '',
                 'using_docker' => false,
-                'redis_mode' => 'standalone',
             ];
         }
 
-        // Display informational note about manual setup
+        // Display informational note about manual configuration
         note(
-            'Please enter the connection details for your existing Redis instance.',
+            'Please enter the connection details for your Redis instance.',
             'Manual Redis Configuration'
         );
 
@@ -829,8 +598,8 @@ trait InteractsWithRedis
         // Prompt for Redis host
         $host = text(
             label: 'Redis host',
-            placeholder: '127.0.0.1',
-            default: '127.0.0.1',
+            placeholder: 'localhost',
+            default: 'localhost',
             required: true,
             hint: 'The Redis server hostname or IP address'
         );
@@ -845,29 +614,31 @@ trait InteractsWithRedis
         );
         $port = (int) $portInput;
 
-        // Prompt for Redis password
+        // =====================================================================
+        // PASSWORD CONFIGURATION
+        // =====================================================================
+
         $hasPassword = confirm(
-            label: 'Does Redis require authentication?',
-            default: false
+            label: 'Does Redis require a password?',
+            default: false,
+            hint: 'Redis can run with or without password authentication'
         );
 
         $redisPassword = '';
         if ($hasPassword) {
             $redisPassword = password(
                 label: 'Redis password',
-                placeholder: 'Enter Redis password',
                 required: true,
-                hint: 'Password for Redis AUTH command'
+                hint: 'Enter the Redis password'
             );
         }
 
-        // Return Redis configuration
+        // Return configuration
         return [
             'redis_host' => $host,
             'redis_port' => $port,
             'redis_password' => $redisPassword,
             'using_docker' => false,
-            'redis_mode' => 'standalone',
         ];
     }
 }

@@ -15,7 +15,11 @@ use PhpHive\Cli\Concerns\InteractsWithComposer;
 use PhpHive\Cli\Concerns\InteractsWithMonorepo;
 use PhpHive\Cli\Concerns\InteractsWithPrompts;
 use PhpHive\Cli\Concerns\InteractsWithTurborepo;
+use PhpHive\Cli\Support\Composer;
 use PhpHive\Cli\Support\Container;
+use PhpHive\Cli\Support\Docker;
+use PhpHive\Cli\Support\Filesystem;
+use PhpHive\Cli\Support\Process;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -102,6 +106,146 @@ abstract class BaseCommand extends Command
     public function setContainer(Container $container): void
     {
         $this->container = $container;
+    }
+
+    /**
+     * Get the dependency injection container.
+     *
+     * Provides access to the application's DI container for service
+     * resolution and dependency management. Use this to resolve services
+     * that are registered in the container.
+     *
+     * Example:
+     * ```php
+     * $customService = $this->container()->make(CustomService::class);
+     * ```
+     *
+     * @return Container The DI container instance
+     */
+    protected function container(): Container
+    {
+        return $this->container;
+    }
+
+    /**
+     * Get the Filesystem service from the container.
+     *
+     * Provides convenient access to the Filesystem service for file and
+     * directory operations. The Filesystem is registered as a singleton
+     * in the container, so the same instance is returned on each call.
+     *
+     * Example:
+     * ```php
+     * if ($this->filesystem()->exists('/path/to/file')) {
+     *     $content = $this->filesystem()->read('/path/to/file');
+     * }
+     * ```
+     *
+     * @return Filesystem The Filesystem service instance
+     */
+    protected function filesystem(): Filesystem
+    {
+        return $this->container->make(Filesystem::class);
+    }
+
+    /**
+     * Get the Process service from the container.
+     *
+     * Provides convenient access to the Process service for executing
+     * shell commands. The Process service wraps Symfony Process with
+     * common patterns and error handling.
+     *
+     * Example:
+     * ```php
+     * $output = $this->process()->run(['ls', '-la'], '/path/to/dir');
+     * if ($this->process()->commandExists('docker')) {
+     *     // Docker is available
+     * }
+     * ```
+     *
+     * @return Process The Process service instance
+     */
+    protected function process(): Process
+    {
+        return $this->container->make(Process::class);
+    }
+
+    /**
+     * Get the Composer service from the container.
+     *
+     * Provides convenient access to the Composer service for dependency
+     * management operations. The Composer service wraps common Composer
+     * commands with error handling and validation.
+     *
+     * Example:
+     * ```php
+     * $this->composer()->install('/path/to/project');
+     * $this->composer()->require('/path/to/project', 'symfony/console');
+     * if ($this->composer()->isInstalled()) {
+     *     $version = $this->composer()->getVersion();
+     * }
+     * ```
+     *
+     * @return Composer The Composer service instance
+     */
+    /**
+     * Get the Composer service from the container.
+     *
+     * Provides convenient access to the Composer service for dependency
+     * management operations. The Composer service wraps common Composer
+     * commands with error handling and validation.
+     *
+     * Example:
+     * ```php
+     * $this->composerService()->install('/path/to/project');
+     * $this->composerService()->require('/path/to/project', 'symfony/console');
+     * if ($this->composerService()->isInstalled()) {
+     *     $version = $this->composerService()->getVersion();
+     * }
+     * ```
+     *
+     * @return Composer The Composer service instance
+     */
+    protected function composerService(): Composer
+    {
+        return $this->container->make(Composer::class);
+    }
+
+    /**
+     * Get the Docker service from the container.
+     *
+     * Provides convenient access to the Docker service for container
+     * management operations. The Docker service wraps Docker and Docker
+     * Compose commands with error handling and validation.
+     *
+     * Example:
+     * ```php
+     * if ($this->docker()->isInstalled()) {
+     *     $this->docker()->composeUp('/path/to/project');
+     * }
+     * ```
+     *
+     * @return Docker The Docker service instance
+     */
+    /**
+     * Get the Docker service from the container.
+     *
+     * Provides convenient access to the Docker service for container
+     * management operations. The Docker service wraps Docker and Docker
+     * Compose commands with error handling and validation.
+     *
+     * Example:
+     * ```php
+     * if ($this->dockerService()->isInstalled()) {
+     *     $this->dockerService()->composeUp('/path/to/project');
+     * }
+     * ```
+     *
+     * @return Docker The Docker service instance
+     */
+    protected function dockerService(): Docker
+    {
+        return $this->container->make(Docker::class);
     }
 
     /**

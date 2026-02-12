@@ -37,6 +37,10 @@ use Symfony\Component\Console\Output\OutputInterface;
  * 4. Install Composer dependencies
  * 5. Run initial tests (if PHPUnit is included)
  *
+ * File Operations:
+ * All file operations use the Filesystem class via $this->filesystem() inherited
+ * from AbstractAppType, providing consistent error handling and testability.
+ *
  * Example configuration:
  * ```php
  * [
@@ -49,6 +53,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  * ```
  *
  * @see AbstractAppType
+ * @see Filesystem
  */
 class SkeletonAppType extends AbstractAppType
 {

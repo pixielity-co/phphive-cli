@@ -15,6 +15,8 @@ use function Laravel\Prompts\text;
 use function Laravel\Prompts\warning;
 
 use mysqli;
+use PhpHive\Cli\Support\Filesystem;
+use RuntimeException;
 
 /**
  * Database Interaction Trait.
@@ -89,6 +91,17 @@ use mysqli;
 trait InteractsWithDatabase
 {
     /**
+     * Get the Filesystem service instance.
+     *
+     * This method provides access to the Filesystem service for file operations.
+     * It should be implemented by the class using this trait to return the
+     * appropriate Filesystem instance from the dependency injection container.
+     *
+     * @return Filesystem The Filesystem service instance
+     */
+    abstract protected function filesystem(): Filesystem;
+
+    /**
      * Orchestrate database setup with Docker-first approach.
      *
      * This is the main entry point for database setup. It intelligently
@@ -131,7 +144,7 @@ trait InteractsWithDatabase
     protected function setupDatabase(string $appName, array $supportedDatabases, string $appPath): array
     {
         // Check if Docker is available (requires InteractsWithDocker trait)
-        if (method_exists($this, 'isDockerAvailable') && $this->isDockerAvailable()) {
+        if ($this->isDockerAvailable()) {
             // Docker is available - offer Docker setup
             note(
                 'Docker detected! Using Docker provides isolated databases, easy management, and no local installation needed.',
@@ -152,14 +165,14 @@ trait InteractsWithDatabase
                 // Docker setup failed, fall back to local
                 warning('Docker setup failed. Falling back to local database setup.');
             }
-        } elseif (method_exists($this, 'isDockerInstalled') && ! $this->isDockerInstalled()) {
+        } elseif (! $this->isDockerInstalled()) {
             // Docker not installed - offer installation guidance
             $installDocker = confirm(
                 label: 'Docker is not installed. Would you like to see installation instructions?',
                 default: false
             );
 
-            if ($installDocker && method_exists($this, 'provideDockerInstallationGuidance')) {
+            if ($installDocker) {
                 $this->provideDockerInstallationGuidance();
                 info('After installing Docker, you can recreate this application to use Docker.');
             }
@@ -220,11 +233,12 @@ trait InteractsWithDatabase
             // Filter to only supported types
             $filteredOptions = array_intersect_key($dbTypeOptions, array_flip($supportedDatabases));
 
-            $dbType = (string) select(
+            $selectedType = select(
                 label: 'Select database type',
                 options: $filteredOptions,
                 default: $supportedDatabases[0]
             );
+            $dbType = is_string($selectedType) ? $selectedType : (string) $selectedType;
         } else {
             $dbType = $supportedDatabases[0];
             info("Using {$dbType} database");
@@ -295,12 +309,6 @@ trait InteractsWithDatabase
 
         info('Starting Docker containers...');
 
-        if (! method_exists($this, 'startDockerContainers')) {
-            error('InteractsWithDocker trait is required for Docker setup');
-
-            return null;
-        }
-
         $started = spin(
             callback: fn (): bool => $this->startDockerContainers($appPath),
             message: 'Starting containers...'
@@ -324,17 +332,15 @@ trait InteractsWithDatabase
             default => 'mysql',
         };
 
-        if (method_exists($this, 'waitForDockerService')) {
-            $ready = spin(
-                callback: fn (): bool => $this->waitForDockerService($appPath, $serviceName, 30),
-                message: 'Waiting for database...'
-            );
+        $ready = spin(
+            callback: fn (): bool => $this->waitForDockerService($appPath, $serviceName, 30),
+            message: 'Waiting for database...'
+        );
 
-            if (! $ready) {
-                warning('Database may not be fully ready. You may need to wait a moment before using it.');
-            } else {
-                info('✓ Database is ready!');
-            }
+        if (! $ready) {
+            warning('Database may not be fully ready. You may need to wait a moment before using it.');
+        } else {
+            info('✓ Database is ready!');
         }
 
         // =====================================================================
@@ -414,13 +420,14 @@ trait InteractsWithDatabase
         // Get template path
         $templatePath = dirname(__DIR__, 2) . "/stubs/docker/{$templateFile}";
 
-        if (! file_exists($templatePath)) {
+        if (! $this->filesystem()->exists($templatePath)) {
             return false;
         }
 
-        // Read template
-        $template = file_get_contents($templatePath);
-        if ($template === false) {
+        // Read template using Filesystem
+        try {
+            $template = $this->filesystem()->read($templatePath);
+        } catch (RuntimeException) {
             return false;
         }
 
@@ -452,15 +459,16 @@ trait InteractsWithDatabase
             $content = preg_replace('/  # Adminer Service.*?depends_on:.*?- (mysql|postgres|mariadb)\n\n/s', '', $content) ?? $content;
         }
 
-        // Write docker-compose.yml
+        // Write docker-compose.yml using Filesystem
         $outputPath = $appPath . '/docker-compose.yml';
 
-        // Ensure directory exists
-        if (! is_dir($appPath)) {
-            mkdir($appPath, 0755, true);
-        }
+        try {
+            $this->filesystem()->write($outputPath, $content);
 
-        return file_put_contents($outputPath, $content) !== false;
+            return true;
+        } catch (RuntimeException) {
+            return false;
+        }
     }
 
     /**

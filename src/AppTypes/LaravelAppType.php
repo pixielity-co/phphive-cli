@@ -28,6 +28,10 @@ use Symfony\Component\Console\Output\OutputInterface;
  * 4. Configure database and run migrations
  * 5. Apply stub templates for monorepo integration
  *
+ * File Operations:
+ * All file operations use the Filesystem class via $this->filesystem() inherited
+ * from AbstractAppType, providing consistent error handling and testability.
+ *
  * Example configuration:
  * ```php
  * [
@@ -44,6 +48,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  *
  * @see https://laravel.com Laravel Framework
  * @see AbstractAppType
+ * @see Filesystem
  */
 class LaravelAppType extends AbstractAppType
 {

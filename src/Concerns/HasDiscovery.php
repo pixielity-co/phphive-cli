@@ -8,9 +8,8 @@ use function error_log;
 use function is_dir;
 use function is_subclass_of;
 
+use PhpHive\Cli\Support\Filesystem;
 use PhpHive\Cli\Support\Reflection;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
 
 use function sprintf;
 use function str_contains;
@@ -64,6 +63,10 @@ trait HasDiscovery
      * automatically handles namespace resolution based on the directory
      * structure.
      *
+     * Uses the Filesystem service for directory traversal instead of raw
+     * RecursiveDirectoryIterator, providing better error handling and
+     * consistency with the rest of the codebase.
+     *
      * The discovery process:
      * - Scans all PHP files recursively in the specified directory
      * - Converts file paths to fully qualified class names
@@ -82,32 +85,27 @@ trait HasDiscovery
             return;
         }
 
-        // Create recursive iterator to scan all files in directory tree
-        $files = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($path, RecursiveDirectoryIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::SELF_FIRST,
-        );
+        // Get all PHP files recursively using Filesystem service
+        $files = $this->filesystem()->allFiles($path);
 
         // Process each file in the directory
         foreach ($files as $file) {
             // Only process PHP files
-            if (! $file->isFile()) {
+            if (! str_contains((string) $file, '.php')) {
                 continue;
             }
-            if ($file->getExtension() !== 'php') {
-                continue;
-            }
+
             // Skip base command classes (not meant to be registered)
-            if (str_contains($file->getFilename(), 'BaseCommand')) {
+            if (str_contains((string) $file, 'BaseCommand')) {
                 continue;
             }
 
             // Build fully qualified class name from file path
-            // Example: /path/to/Command/Install/InstallCommand.php
+            // Example: Command/Install/InstallCommand.php
             //       -> \PhpHive\Cli\Command\Install\InstallCommand
-            $relativePath = str_replace($path, '', (string) $file->getPathname());
-            $relativePath = str_replace(['/', '.php'], ['\\', ''], $relativePath);
-            $className = "{$namespace}{$relativePath}";
+            $classPath = str_replace('.php', '', $file);
+            $classPath = str_replace('/', '\\', $classPath);
+            $className = "{$namespace}\\{$classPath}";
 
             // Validate and register the command
             if ($this->isValidCommand($className)) {
@@ -229,4 +227,15 @@ trait HasDiscovery
      * @param string $commandClass Fully qualified class name of the command
      */
     abstract protected function registerCommand(string $commandClass): void;
+
+    /**
+     * Get the Filesystem service instance.
+     *
+     * This method provides access to the Filesystem service for file operations.
+     * It should be implemented by the class using this trait to return the
+     * appropriate Filesystem instance from the dependency injection container.
+     *
+     * @return Filesystem The Filesystem service instance
+     */
+    abstract protected function filesystem(): Filesystem;
 }

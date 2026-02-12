@@ -7,7 +7,7 @@ namespace PhpHive\Cli\Concerns;
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\note;
 
-use Symfony\Component\Process\Process;
+use PhpHive\Cli\Support\Process;
 
 /**
  * Docker Interaction Trait.
@@ -96,6 +96,17 @@ use Symfony\Component\Process\Process;
 trait InteractsWithDocker
 {
     /**
+     * Get the Process service instance.
+     *
+     * This method provides access to the Process service for command execution.
+     * It should be implemented by the class using this trait to return the
+     * appropriate Process instance from the dependency injection container.
+     *
+     * @return Process The Process service instance
+     */
+    abstract protected function process(): Process;
+
+    /**
      * Check if Docker is installed on the system.
      *
      * Attempts to execute 'docker --version' command to verify Docker
@@ -119,14 +130,8 @@ trait InteractsWithDocker
      */
     protected function isDockerInstalled(): bool
     {
-        // Create process to check Docker version
-        $process = new Process(['docker', '--version']);
-
-        // Run the process and suppress output
-        $process->run();
-
-        // Return true if command was successful (exit code 0)
-        return $process->isSuccessful();
+        // Use Process service to check Docker version
+        return $this->process()->succeeds(['docker', '--version']);
     }
 
     /**
@@ -156,14 +161,8 @@ trait InteractsWithDocker
      */
     protected function isDockerRunning(): bool
     {
-        // Create process to list running containers
-        $process = new Process(['docker', 'ps']);
-
-        // Run the process and suppress output
-        $process->run();
-
-        // Return true if command was successful
-        return $process->isSuccessful();
+        // Use Process service to list running containers
+        return $this->process()->succeeds(['docker', 'ps']);
     }
 
     /**
@@ -192,19 +191,13 @@ trait InteractsWithDocker
      */
     protected function isDockerComposeAvailable(): bool
     {
-        // Try Docker Compose V2 (plugin)
-        $processV2 = new Process(['docker', 'compose', 'version']);
-        $processV2->run();
-
-        if ($processV2->isSuccessful()) {
+        // Try Docker Compose V2 (plugin) using Process service
+        if ($this->process()->succeeds(['docker', 'compose', 'version'])) {
             return true;
         }
 
-        // Try Docker Compose V1 (standalone)
-        $processV1 = new Process(['docker-compose', '--version']);
-        $processV1->run();
-
-        return $processV1->isSuccessful();
+        // Try Docker Compose V1 (standalone) using Process service
+        return $this->process()->succeeds(['docker-compose', '--version']);
     }
 
     /**
@@ -478,17 +471,8 @@ trait InteractsWithDocker
      */
     protected function startDockerContainers(string $appPath): bool
     {
-        // Create process to start containers
-        $process = new Process(['docker', 'compose', 'up', '-d'], $appPath);
-
-        // Set timeout to 5 minutes (container pulls can take time)
-        $process->setTimeout(300);
-
-        // Run the process
-        $process->run();
-
-        // Return success status
-        return $process->isSuccessful();
+        // Start containers using Process service with 5 minute timeout
+        return $this->process()->succeeds(['docker', 'compose', 'up', '-d'], $appPath, 300);
     }
 
     /**
@@ -517,17 +501,8 @@ trait InteractsWithDocker
      */
     protected function stopDockerContainers(string $appPath): bool
     {
-        // Create process to stop containers
-        $process = new Process(['docker', 'compose', 'down'], $appPath);
-
-        // Set timeout to 2 minutes
-        $process->setTimeout(120);
-
-        // Run the process
-        $process->run();
-
-        // Return success status
-        return $process->isSuccessful();
+        // Stop containers using Process service with 2 minute timeout
+        return $this->process()->succeeds(['docker', 'compose', 'down'], $appPath, 120);
     }
 
     /**
@@ -552,14 +527,14 @@ trait InteractsWithDocker
      */
     protected function areDockerContainersRunning(string $appPath): bool
     {
-        // Create process to check container status
-        $process = new Process(['docker', 'compose', 'ps', '--services', '--filter', 'status=running'], $appPath);
-
-        // Run the process
-        $process->run();
+        // Check container status using Process service
+        $output = $this->process()->run(
+            ['docker', 'compose', 'ps', '--services', '--filter', 'status=running'],
+            $appPath
+        );
 
         // Return true if command succeeded and has output
-        return $process->isSuccessful() && trim($process->getOutput()) !== '';
+        return $output !== null && trim($output) !== '';
     }
 
     /**
@@ -588,15 +563,11 @@ trait InteractsWithDocker
         $attempts = 0;
 
         while ($attempts < $maxAttempts) {
-            // Check if service is running
-            $process = new Process(
+            // Check if service is running using Process service
+            if ($this->process()->succeeds(
                 ['docker', 'compose', 'exec', '-T', $serviceName, 'echo', 'ready'],
                 $appPath
-            );
-
-            $process->run();
-
-            if ($process->isSuccessful()) {
+            )) {
                 return true;
             }
 

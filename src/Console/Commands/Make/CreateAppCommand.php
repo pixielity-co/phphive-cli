@@ -396,7 +396,7 @@ final class CreateAppCommand extends BaseCommand
 
         $this->line('');
         $this->info('Creating application directory...');
-        $filesystem = Filesystem::make();
+        $filesystem = $this->filesystem();
         $filesystem->makeDirectory($appPath, 0755, true);
 
         // =====================================================================
@@ -542,12 +542,7 @@ final class CreateAppCommand extends BaseCommand
             $targetPath = $isAppendStub ? str_replace('.append.stub', '', $relativePath) : str_replace('.stub', '', $relativePath);
 
             // Read stub content
-            $content = file_get_contents($stubFile);
-            if ($content === false) {
-                $this->warning("Failed to read stub file: {$stubFile}");
-
-                continue;
-            }
+            $content = $filesystem->read($stubFile);
 
             // Replace placeholders with actual values
             $processedContent = str_replace(
@@ -566,12 +561,10 @@ final class CreateAppCommand extends BaseCommand
             }
 
             // Handle append vs replace
-            if ($isAppendStub && file_exists($targetFile)) {
+            if ($isAppendStub && $filesystem->exists($targetFile)) {
                 // Append to existing file
-                $existingContent = file_get_contents($targetFile);
-                if ($existingContent !== false) {
-                    $filesystem->write($targetFile, $existingContent . $processedContent);
-                }
+                $existingContent = $filesystem->read($targetFile);
+                $filesystem->write($targetFile, $existingContent . $processedContent);
             } else {
                 // Write/overwrite the file
                 $filesystem->write($targetFile, $processedContent);

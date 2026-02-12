@@ -14,10 +14,6 @@
 # includes:
 #     - vendor/larastan/larastan/extension.neon
 
-# Baseline for ignored errors
-includes:
-    - phpstan-baseline.neon
-
 parameters:
     # =========================================================================
     # ANALYSIS PATHS

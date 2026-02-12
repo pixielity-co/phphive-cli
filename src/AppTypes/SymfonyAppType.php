@@ -30,6 +30,10 @@ use Symfony\Component\Console\Output\OutputInterface;
  * 4. Configure database and run migrations
  * 5. Apply stub templates for monorepo integration
  *
+ * File Operations:
+ * All file operations use the Filesystem class via $this->filesystem() inherited
+ * from AbstractAppType, providing consistent error handling and testability.
+ *
  * Project types:
  * - webapp: Full-featured web application with Twig, forms, security, etc.
  * - skeleton: Minimal microservice/API with only essential components
@@ -49,6 +53,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  *
  * @see https://symfony.com Symfony Framework
  * @see AbstractAppType
+ * @see Filesystem
  */
 class SymfonyAppType extends AbstractAppType
 {

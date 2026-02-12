@@ -14,7 +14,11 @@ use const PHP_SAPI;
 
 use PhpHive\Cli\Concerns\ChecksForUpdates;
 use PhpHive\Cli\Concerns\HasDiscovery;
+use PhpHive\Cli\Support\Composer;
 use PhpHive\Cli\Support\Container;
+use PhpHive\Cli\Support\Docker;
+use PhpHive\Cli\Support\Filesystem;
+use PhpHive\Cli\Support\Process;
 use PhpHive\Cli\Support\Reflection;
 
 use function sprintf;
@@ -92,8 +96,8 @@ final class Application extends BaseApplication
      * Create a new CLI application instance.
      *
      * Initializes the Symfony Console application with the configured name
-     * and version, creates a new dependency injection container, and sets
-     * the default command to 'list'.
+     * and version, creates a new dependency injection container, registers
+     * core services, and sets the default command to 'list'.
      */
     public function __construct()
     {
@@ -101,6 +105,9 @@ final class Application extends BaseApplication
 
         // Initialize dependency injection container
         $this->container = new Container();
+
+        // Register core services in the container
+        $this->registerServices();
 
         // Set default command (shown when no command is specified)
         $this->setDefaultCommand('list');
@@ -257,6 +264,23 @@ final class Application extends BaseApplication
     }
 
     /**
+     * Get the Filesystem service from the container.
+     *
+     * Provides convenient access to the Filesystem service for file and
+     * directory operations. The Filesystem is registered as a singleton
+     * in the container, so the same instance is returned on each call.
+     *
+     * This method is required by traits that use filesystem operations
+     * (ChecksForUpdates, HasDiscovery).
+     *
+     * @return Filesystem The Filesystem service instance
+     */
+    protected function filesystem(): Filesystem
+    {
+        return $this->container->make(Filesystem::class);
+    }
+
+    /**
      * Register a command with the application.
      *
      * This method instantiates a command class and registers it with the
@@ -338,6 +362,37 @@ final class Application extends BaseApplication
 
         // Return top 3 suggestions as array values
         return array_values(array_slice(array_keys($alternatives), 0, 3));
+    }
+
+    /**
+     * Register core services in the dependency injection container.
+     *
+     * This method registers all core application services as singletons
+     * in the container. Services registered here are available to all
+     * commands via dependency injection.
+     *
+     * Registered services:
+     * - Filesystem: File and directory operations
+     * - Process: Shell command execution with Symfony Process
+     * - Composer: Composer dependency management operations
+     * - Docker: Docker and Docker Compose container operations
+     *
+     * All services are registered as singletons to ensure a single instance
+     * is shared across the application lifecycle.
+     */
+    private function registerServices(): void
+    {
+        // Register Filesystem as singleton
+        $this->container->singleton(Filesystem::class, fn (): Filesystem => Filesystem::make());
+
+        // Register Process as singleton
+        $this->container->singleton(Process::class, fn (): Process => Process::make());
+
+        // Register Composer as singleton
+        $this->container->singleton(Composer::class, fn (): Composer => Composer::make());
+
+        // Register Docker as singleton
+        $this->container->singleton(Docker::class, fn (): Docker => Docker::make());
     }
 
     /**

@@ -264,7 +264,7 @@ final class ConsoleCommand extends BaseCommand
 
         // Check if bin/console file exists in the workspace
         // This confirms the workspace is a Symfony application
-        if (! file_exists("{$workspacePath}/bin/console")) {
+        if (! $this->filesystem()->exists("{$workspacePath}/bin/console")) {
             $this->error("Symfony Console not found in workspace '{$workspace}'. Is this a Symfony application?");
 
             return Command::FAILURE;

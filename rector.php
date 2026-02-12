@@ -27,6 +27,7 @@ use Rector\CodingStyle\Rector\Stmt\NewlineAfterStatementRector;
 use Rector\Config\RectorConfig;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUnusedPrivateMethodRector;
 use Rector\DeadCode\Rector\Property\RemoveUnusedPrivatePropertyRector;
+use Rector\Php81\Rector\FuncCall\NullToStrictStringFuncCallArgRector;
 use Rector\Php81\Rector\Property\ReadOnlyPropertyRector;
 use Rector\Privatization\Rector\ClassMethod\PrivatizeFinalClassMethodRector;
 use Rector\Set\ValueObject\SetList;
@@ -79,6 +80,9 @@ return RectorConfig::configure()
         EncapsedStringsToSprintfRector::class,
         // Don't force newlines after statements (formatting handled by Pint)
         NewlineAfterStatementRector::class,
+        // Don't add string casts when Filesystem service already returns string
+        // PHPStan knows the type, so casts are useless and cause errors
+        NullToStrictStringFuncCallArgRector::class,
         // =====================================================================
         // RULES TO SKIP FOR SPECIFIC PATHS
         // =====================================================================

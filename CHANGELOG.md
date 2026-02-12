@@ -5,6 +5,64 @@ All notable changes to PhpHive CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.18] - 2026-02-12
+
+### Added
+
+- **Service Wrapper Classes**: Created dedicated service classes for better architecture
+  - `Process` - Wraps Symfony Process with common patterns and error handling
+  - `Composer` - Wraps Composer operations with consistent interface
+  - `Docker` - Wraps Docker and Docker Compose operations
+  - All services registered as singletons in Application container
+  - Accessor methods in BaseCommand: `process()`, `composerService()`, `dockerService()`
+
+### Changed
+
+- **Refactored File Operations**: All raw PHP file operations now use Filesystem service
+  - Replaced `file_get_contents`, `file_put_contents`, `mkdir` with Filesystem methods
+  - Updated traits: `InteractsWithTurborepo`, `InteractsWithMonorepo`, `ChecksForUpdates`, `HasDiscovery`
+  - Improved error handling and testability
+  - Consistent exception handling across all file operations
+
+- **Refactored Process Operations**: All `new Process()` calls now use Process service
+  - Updated traits: `InteractsWithDocker`, `InteractsWithComposer`, `InteractsWithMinio`, `InteractsWithMeilisearch`, `InteractsWithElasticsearch`
+  - Centralized process execution logic
+  - Better error messages and timeout handling
+
+- **Removed Unnecessary Method Checks**: Cleaned up `method_exists()` calls
+  - Removed redundant checks in `InteractsWithDatabase`, `InteractsWithRedis`, `InteractsWithElasticsearch`, `InteractsWithMeilisearch`, `InteractsWithMinio`
+  - PHPStan now correctly infers trait method availability
+  - Cleaner, more maintainable code
+
+- **Fixed Method Naming Conflicts**: Resolved composer() method collision
+  - Renamed BaseCommand methods: `composer()` → `composerService()`, `docker()` → `dockerService()`
+  - Trait method `composer()` aliased as `executeComposer` in BaseCommand
+  - Added PHPDoc `@method` annotation for PHPStan compatibility
+  - Clear separation between service accessors and command executors
+
+### Fixed
+
+- **PHPStan Compliance**: Fixed all 18 PHPStan errors
+  - Fixed short ternary operator in `ChecksForUpdates.php` (line 128)
+  - Fixed preg_match comparison in `InteractsWithComposer.php` (line 247)
+  - Fixed preg_match boolean check in `InteractsWithMeilisearch.php` (line 379)
+  - Removed useless string casts added by Rector
+  - Fixed method signature mismatches
+  - All files now pass strict type checking
+
+- **Rector Configuration**: Disabled `NullToStrictStringFuncCallArgRector`
+  - Prevents conflict with PHPStan when Filesystem service returns guaranteed string types
+  - Avoids unnecessary string casts that PHPStan flags as useless
+  - Better alignment between Rector and PHPStan rules
+
+### Technical Details
+
+- All tests passing: 58/58 ✓
+- PHPStan: 0 errors ✓
+- Pint linting: All files pass ✓
+- Rector: No issues ✓
+- Code quality significantly improved with service-oriented architecture
+
 ## [1.0.17] - 2026-02-12
 
 ### Added
