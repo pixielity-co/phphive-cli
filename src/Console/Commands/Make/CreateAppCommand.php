@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace PhpHive\Cli\Console\Commands\Make;
 
+use Exception;
+
 use function is_dir;
 
 use Override;
@@ -340,14 +342,15 @@ final class CreateAppCommand extends BaseCommand
      * Execute the create app command.
      *
      * This method orchestrates the entire application scaffolding process:
-     * 1. Prompts for app type selection (if not provided)
-     * 2. Collects configuration through app type prompts
-     * 3. Validates the application name doesn't already exist
-     * 4. Creates the application directory
-     * 5. Runs the app type's installation command
-     * 6. Copies and processes stub template files
-     * 7. Runs post-installation commands
-     * 8. Displays next steps to the user
+     * 1. Runs preflight checks to validate environment
+     * 2. Validates application name with smart suggestions
+     * 3. Prompts for app type selection (if not provided)
+     * 4. Collects configuration through app type prompts
+     * 5. Creates the application directory
+     * 6. Runs the app type's installation command
+     * 7. Copies and processes stub template files
+     * 8. Runs post-installation commands
+     * 9. Displays next steps to the user
      *
      * The command will fail if an application with the same name already
      * exists in the apps/ directory to prevent accidental overwrites.
@@ -358,17 +361,23 @@ final class CreateAppCommand extends BaseCommand
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        // Extract the application name from command arguments
-        $name = $input->getArgument('name');
-
         // Display intro banner
-        $this->intro("Creating application: {$name}");
+        $this->intro('Application Creation');
 
-        // =====================================================================
-        // APP TYPE SELECTION
-        // =====================================================================
+        // Step 1: Run preflight checks
+        $this->info('Running environment checks...');
+        $preflightResult = $this->runPreflightChecks();
 
-        // Get app type from option or prompt user
+        if ($preflightResult->failed()) {
+            return Command::FAILURE;
+        }
+
+        $this->line('');
+
+        // Step 2: Get and validate application name with smart suggestions
+        $name = $this->getValidatedAppName($input);
+
+        // Step 3: APP TYPE SELECTION
         $typeOption = $input->getOption('type');
         if ($typeOption !== null && $typeOption !== '') {
             $appTypeId = $typeOption;
@@ -390,114 +399,43 @@ final class CreateAppCommand extends BaseCommand
 
         // Create the app type instance
         $appType = AppTypeFactory::create($appTypeId);
-        $this->info("Selected: {$appType->getName()}");
+        $this->comment("Selected: {$appType->getName()}");
 
-        // =====================================================================
-        // CONFIGURATION COLLECTION
-        // =====================================================================
-
-        // Collect configuration through app type prompts
+        // Step 4: CONFIGURATION COLLECTION
         $this->line('');
         $this->comment('Configuration:');
         $config = $appType->collectConfiguration($input, $output);
 
-        // Override name with command argument
+        // Override name with validated name
         $config['name'] = $name;
 
-        // =====================================================================
-        // VALIDATION
-        // =====================================================================
-
-        // Determine the full path for the new application
+        // Step 5: Execute application creation with progress feedback
         $root = $this->getMonorepoRoot();
         $appPath = "{$root}/apps/{$name}";
+        $filesystem = $this->filesystem();
 
-        // Check if app already exists to prevent overwriting
-        if (is_dir($appPath)) {
-            $this->error("Application '{$name}' already exists");
-
-            return Command::FAILURE;
-        }
-
-        // =====================================================================
-        // DIRECTORY CREATION
-        // =====================================================================
+        $steps = [
+            'Creating application structure' => fn () => $this->createAppStructure($appPath, $filesystem),
+            'Running pre-installation setup' => fn () => $this->runPreInstallCommands($appType, $config, $appPath),
+            'Installing application framework' => fn () => $this->runInstallCommand($appType, $config, $appPath),
+            'Processing configuration files' => fn () => $this->processStubs($appType, $config, $appPath, $filesystem),
+            'Running post-installation tasks' => fn () => $this->runPostInstallCommands($appType, $config, $appPath),
+        ];
 
         $this->line('');
-        $this->info('Creating application directory...');
-        $filesystem = $this->filesystem();
-        $filesystem->makeDirectory($appPath, 0755, true);
+        foreach ($steps as $message => $step) {
+            $result = $this->spin($step, "{$message}...");
 
-        // =====================================================================
-        // PRE-INSTALL COMMANDS
-        // =====================================================================
-
-        // Run pre-installation commands (e.g., authentication setup)
-        $preCommands = $appType->getPreInstallCommands($config);
-        if ($preCommands !== []) {
-            $this->info('Running pre-installation commands...');
-            foreach ($preCommands as $preCommand) {
-                $this->line("  → {$preCommand}");
-                $exitCode = $this->executeCommand($preCommand, $appPath);
-                if ($exitCode !== 0) {
-                    $this->error("Pre-installation command failed: {$preCommand}");
-
-                    return Command::FAILURE;
-                }
-            }
-        }
-
-        // =====================================================================
-        // INSTALLATION COMMAND
-        // =====================================================================
-
-        // Run the app type's installation command (e.g., composer create-project)
-        $installCommand = $appType->getInstallCommand($config);
-        if ($installCommand !== '') {
-            $this->info('Running installation command...');
-            $this->line("  → {$installCommand}");
-
-            // Execute the installation command in the app directory
-            $exitCode = $this->executeCommand($installCommand, $appPath);
-            if ($exitCode !== 0) {
-                $this->error('Installation command failed');
-
+            if ($result === false) {
                 return Command::FAILURE;
             }
+
+            $this->comment("✓ {$message} complete");
         }
 
-        // =====================================================================
-        // STUB PROCESSING
-        // =====================================================================
-
-        // Copy and process stub template files
-        $this->info('Processing stub templates...');
-        $this->processStubs($appType, $config, $appPath, $filesystem);
-
-        // =====================================================================
-        // POST-INSTALL COMMANDS
-        // =====================================================================
-
-        // Run post-installation commands
-        $postCommands = $appType->getPostInstallCommands($config);
-        if ($postCommands !== []) {
-            $this->info('Running post-installation commands...');
-            foreach ($postCommands as $postCommand) {
-                $this->line("  → {$postCommand}");
-                $exitCode = $this->executeCommand($postCommand, $appPath);
-                if ($exitCode !== 0) {
-                    $this->warning("Command failed: {$postCommand}");
-                    // Continue with other commands
-                }
-            }
-        }
-
-        // =====================================================================
-        // SUCCESS MESSAGE
-        // =====================================================================
-
+        // Step 6: Display success summary
         $this->line('');
-        $this->outro("✓ Application '{$name}' created successfully!");
+        $this->outro("🎉 Application '{$name}' created successfully!");
         $this->line('');
         $this->comment('Next steps:');
         $this->line("  1. cd apps/{$name}");
@@ -505,6 +443,203 @@ final class CreateAppCommand extends BaseCommand
         $this->line("  3. hive dev --workspace={$name}");
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * Run preflight checks to validate environment.
+     */
+    private function runPreflightChecks(): \PhpHive\Cli\Support\PreflightResult
+    {
+        $checker = new \PhpHive\Cli\Support\PreflightChecker($this->process());
+        $result = $checker->check();
+
+        // Display check results
+        foreach ($result->checks as $checkName => $checkResult) {
+            if ($checkResult['passed']) {
+                $this->comment("✓ {$checkName}: {$checkResult['message']}");
+            } else {
+                $this->error("✗ {$checkName}: {$checkResult['message']}");
+
+                if (isset($checkResult['fix'])) {
+                    $this->line('');
+                    $this->note($checkResult['fix'], 'Suggested fix');
+                }
+            }
+        }
+
+        if ($result->passed) {
+            $this->line('');
+            $this->info('✓ All checks passed');
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get and validate application name with smart suggestions.
+     *
+     * @return string Validated application name
+     */
+    private function getValidatedAppName(InputInterface $input): string
+    {
+        $name = $input->getArgument('name');
+        $root = $this->getMonorepoRoot();
+        $appPath = "{$root}/apps/{$name}";
+
+        // Check if name is available
+        if (! is_dir($appPath)) {
+            $this->info("✓ Application name '{$name}' is available");
+
+            return $name;
+        }
+
+        // Name is taken, offer suggestions
+        $this->warning("Application '{$name}' already exists");
+        $this->line('');
+
+        $suggestionService = new \PhpHive\Cli\Support\NameSuggestionService();
+        $suggestions = $suggestionService->suggest(
+            $name,
+            'app',
+            fn ($suggestedName) => ! is_dir("{$root}/apps/{$suggestedName}")
+        );
+
+        if (count($suggestions) === 0) {
+            $this->error('Could not generate alternative names. Please choose a different name.');
+            exit(Command::FAILURE);
+        }
+
+        // Get the best suggestion
+        $bestSuggestion = $suggestionService->getBestSuggestion($suggestions);
+
+        // Display suggestions with recommendation
+        $this->comment('Suggested names:');
+        $index = 1;
+        foreach ($suggestions as $suggestion) {
+            $marker = $suggestion === $bestSuggestion ? ' (recommended)' : '';
+            $this->line("  {$index}. {$suggestion}{$marker}");
+            $index++;
+        }
+
+        $this->line('');
+
+        // Let user select or enter custom name with best suggestion pre-filled
+        $choice = $this->suggest(
+            label: 'Choose an available name',
+            options: $suggestions,
+            placeholder: $bestSuggestion ?? 'Enter a custom name',
+            default: $bestSuggestion ?? '',
+            required: true
+        );
+
+        // Validate the chosen name
+        $chosenPath = "{$root}/apps/{$choice}";
+        if (is_dir($chosenPath)) {
+            $this->error("Application '{$choice}' also exists. Please try again with a different name.");
+            exit(Command::FAILURE);
+        }
+
+        $this->info("✓ Application name '{$choice}' is available");
+
+        return $choice;
+    }
+
+    /**
+     * Create application directory structure.
+     *
+     * @param  string     $appPath    Full application path
+     * @param  Filesystem $filesystem Filesystem service
+     * @return bool       True on success
+     */
+    private function createAppStructure(string $appPath, Filesystem $filesystem): bool
+    {
+        try {
+            $filesystem->makeDirectory($appPath, 0755, true);
+
+            return true;
+        } catch (Exception $exception) {
+            $this->error("Failed to create application directory: {$exception->getMessage()}");
+
+            return false;
+        }
+    }
+
+    /**
+     * Run pre-installation commands.
+     *
+     * @param  AppTypeInterface     $appType App type instance
+     * @param  array<string, mixed> $config  Configuration
+     * @param  string               $appPath Application path
+     * @return bool                 True on success
+     */
+    private function runPreInstallCommands(AppTypeInterface $appType, array $config, string $appPath): bool
+    {
+        $preCommands = $appType->getPreInstallCommands($config);
+        if ($preCommands === []) {
+            return true;
+        }
+
+        foreach ($preCommands as $preCommand) {
+            $exitCode = $this->executeCommand($preCommand, $appPath);
+            if ($exitCode !== 0) {
+                $this->error("Pre-installation command failed: {$preCommand}");
+
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Run installation command.
+     *
+     * @param  AppTypeInterface     $appType App type instance
+     * @param  array<string, mixed> $config  Configuration
+     * @param  string               $appPath Application path
+     * @return bool                 True on success
+     */
+    private function runInstallCommand(AppTypeInterface $appType, array $config, string $appPath): bool
+    {
+        $installCommand = $appType->getInstallCommand($config);
+        if ($installCommand === '') {
+            return true;
+        }
+
+        $exitCode = $this->executeCommand($installCommand, $appPath);
+        if ($exitCode !== 0) {
+            $this->error('Installation command failed');
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Run post-installation commands.
+     *
+     * @param  AppTypeInterface     $appType App type instance
+     * @param  array<string, mixed> $config  Configuration
+     * @param  string               $appPath Application path
+     * @return bool                 True on success (warnings don't fail)
+     */
+    private function runPostInstallCommands(AppTypeInterface $appType, array $config, string $appPath): bool
+    {
+        $postCommands = $appType->getPostInstallCommands($config);
+        if ($postCommands === []) {
+            return true;
+        }
+
+        foreach ($postCommands as $postCommand) {
+            $exitCode = $this->executeCommand($postCommand, $appPath);
+            if ($exitCode !== 0) {
+                // Log warning but continue
+                $this->warning("Command had issues: {$postCommand}");
+            }
+        }
+
+        return true;
     }
 
     /**

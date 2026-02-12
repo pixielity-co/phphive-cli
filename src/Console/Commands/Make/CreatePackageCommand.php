@@ -173,41 +173,16 @@ final class CreatePackageCommand extends BaseCommand
     }
 
     /**
-     * Set help text for the command.
-    #[Override]
-    protected function configure(): void
-    {
-        parent::configure();
-
-        $this
-            ->addArgument(
-                'name',
-                InputArgument::REQUIRED,
-                'Package name (e.g., logger, http-client)',
-            )
-            ->setHelp(
-                <<<'HELP'
-                The <info>create:package</info> command scaffolds a new PHP package.
-
-                <comment>Examples:</comment>
-                  <info>hive create:package logger</info>
-                  <info>hive create:package http-client</info>
-
-                This creates a complete package structure with all necessary files.
-                HELP
-            );
-    }
-
-    /**
      * Execute the create package command.
      *
      * This method orchestrates the entire package scaffolding process:
-     * 1. Extracts and validates the package name
-     * 2. Prompts for package type if not provided
-     * 3. Checks if the package already exists
+     * 1. Runs preflight checks to validate environment
+     * 2. Extracts and validates the package name with smart suggestions
+     * 3. Prompts for package type if not provided
      * 4. Creates the complete directory structure using stubs
      * 5. Processes stub templates with variables
-     * 6. Displays next steps to the user
+     * 6. Installs dependencies with progress feedback
+     * 7. Displays next steps to the user
      *
      * @param  InputInterface  $input  Command input (arguments and options)
      * @param  OutputInterface $output Command output (for displaying messages)
@@ -215,13 +190,23 @@ final class CreatePackageCommand extends BaseCommand
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        // Extract the package name from command arguments
-        $name = $input->getArgument('name');
+        // Display intro banner
+        $this->intro('Package Creation');
 
-        // Display intro banner with package name
-        $this->intro("Creating package: {$name}");
+        // Step 1: Run preflight checks
+        $this->info('Running environment checks...');
+        $preflightResult = $this->runPreflightChecks();
 
-        // Determine package type (prompt if not provided)
+        if ($preflightResult->failed()) {
+            return Command::FAILURE;
+        }
+
+        $this->line('');
+
+        // Step 2: Get and validate package name with smart suggestions
+        $name = $this->getValidatedPackageName($input);
+
+        // Step 3: Determine package type (prompt if not provided)
         $type = $input->getOption('type');
         $packageTypeFactory = new PackageTypeFactory($this->composerService());
 
@@ -243,68 +228,245 @@ final class CreatePackageCommand extends BaseCommand
         }
 
         $this->line('');
-        $this->comment('Selected: ' . $packageType->getDisplayName());
+        $this->comment("Selected: {$packageType->getDisplayName()}");
         $this->line('');
 
-        // Determine the full path for the new package
+        // Step 4: Execute package creation steps with progress feedback
         $root = $this->getMonorepoRoot();
         $packagePath = "{$root}/packages/{$name}";
 
-        // Check if package already exists to prevent overwriting
-        if (is_dir($packagePath)) {
-            $this->error("Package '{$name}' already exists");
+        $steps = [
+            'Checking name availability' => fn () => $this->checkNameAvailability($name, $packagePath),
+            'Creating package structure' => fn () => $this->createPackageStructure($packagePath),
+            'Generating configuration files' => fn () => $this->generateConfigFiles($input, $name, $type, $packagePath, $packageType),
+        ];
 
-            return Command::FAILURE;
+        foreach ($steps as $message => $step) {
+            $result = $this->spin($step, "{$message}...");
+
+            if ($result === false) {
+                return Command::FAILURE;
+            }
+
+            $this->comment("✓ {$message} complete");
         }
 
-        // Get stub path for the selected package type
-        $stubsBasePath = dirname(__DIR__, 4) . '/stubs';
-        $stubPath = $packageType->getStubPath($stubsBasePath);
-
-        if (! is_dir($stubPath)) {
-            $this->error("Stub directory not found for package type '{$type}' at: {$stubPath}");
-
-            return Command::FAILURE;
-        }
-
-        // Initialize filesystem helper
-        $filesystem = $this->filesystem();
-
-        // Create package directory
-        $this->info('Creating package directory...');
-        $filesystem->makeDirectory($packagePath, 0755, true);
-
-        // Copy stub files and process templates
-        $this->info('Processing stub templates...');
-
-        // Prepare stub variables using package type
-        $description = $input->getOption('description') ?? "A {$type} package";
-        $variables = $packageType->prepareVariables($name, $description);
-
-        // Copy and process all stub files with package type naming rules
-        $this->copyStubFiles($stubPath, $packagePath, $variables, $filesystem, $packageType->getFileNamingRules());
-
-        // Run post-creation tasks (e.g., composer install)
+        // Step 5: Install dependencies with progress feedback
         $this->line('');
-        $this->info('Installing dependencies...');
+        $installResult = $this->spin(
+            fn () => $this->installDependencies($packageType, $packagePath),
+            'Installing dependencies...'
+        );
 
-        try {
-            $packageType->postCreate($packagePath);
+        if ($installResult) {
             $this->comment('✓ Dependencies installed successfully');
-        } catch (Exception $exception) {
-            $this->warning('Composer install failed. You may need to run it manually.');
-            $this->line($exception->getMessage());
+        } else {
+            $this->warning('⚠ Dependency installation had issues (you may need to run composer install manually)');
         }
 
-        // Display success message and next steps
+        // Step 6: Display success summary
         $this->line('');
-        $this->outro("✓ Package '{$name}' created successfully!");
+        $this->outro("🎉 Package '{$name}' created successfully!");
         $this->line('');
         $this->comment('Next steps:');
         $this->line("  1. cd packages/{$name}");
         $this->line('  2. Start coding in src/');
+        $this->line('  3. Run tests with: composer test');
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * Run preflight checks to validate environment.
+     */
+    private function runPreflightChecks(): \PhpHive\Cli\Support\PreflightResult
+    {
+        $checker = new \PhpHive\Cli\Support\PreflightChecker($this->process());
+        $result = $checker->check();
+
+        // Display check results
+        foreach ($result->checks as $checkName => $checkResult) {
+            if ($checkResult['passed']) {
+                $this->comment("✓ {$checkName}: {$checkResult['message']}");
+            } else {
+                $this->error("✗ {$checkName}: {$checkResult['message']}");
+
+                if (isset($checkResult['fix'])) {
+                    $this->line('');
+                    $this->note($checkResult['fix'], 'Suggested fix');
+                }
+            }
+        }
+
+        if ($result->passed) {
+            $this->line('');
+            $this->info('✓ All checks passed');
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get and validate package name with smart suggestions.
+     *
+     * @return string Validated package name
+     */
+    private function getValidatedPackageName(InputInterface $input): string
+    {
+        $name = $input->getArgument('name');
+        $root = $this->getMonorepoRoot();
+        $packagePath = "{$root}/packages/{$name}";
+
+        // Check if name is available
+        if (! is_dir($packagePath)) {
+            $this->info("✓ Package name '{$name}' is available");
+
+            return $name;
+        }
+
+        // Name is taken, offer suggestions
+        $this->warning("Package '{$name}' already exists");
+        $this->line('');
+
+        $suggestionService = new \PhpHive\Cli\Support\NameSuggestionService();
+        $suggestions = $suggestionService->suggest(
+            $name,
+            'package',
+            fn ($suggestedName) => ! is_dir("{$root}/packages/{$suggestedName}")
+        );
+
+        if (count($suggestions) === 0) {
+            $this->error('Could not generate alternative names. Please choose a different name.');
+            exit(Command::FAILURE);
+        }
+
+        // Get the best suggestion
+        $bestSuggestion = $suggestionService->getBestSuggestion($suggestions);
+
+        // Display suggestions with recommendation
+        $this->comment('Suggested names:');
+        $index = 1;
+        foreach ($suggestions as $suggestion) {
+            $marker = $suggestion === $bestSuggestion ? ' (recommended)' : '';
+            $this->line("  {$index}. {$suggestion}{$marker}");
+            $index++;
+        }
+
+        $this->line('');
+
+        // Let user select or enter custom name with best suggestion pre-filled
+        $choice = $this->suggest(
+            label: 'Choose an available name',
+            options: $suggestions,
+            placeholder: $bestSuggestion ?? 'Enter a custom name',
+            default: $bestSuggestion ?? '',
+            required: true
+        );
+
+        // Validate the chosen name
+        $chosenPath = "{$root}/packages/{$choice}";
+        if (is_dir($chosenPath)) {
+            $this->error("Package '{$choice}' also exists. Please try again with a different name.");
+            exit(Command::FAILURE);
+        }
+
+        $this->info("✓ Package name '{$choice}' is available");
+
+        return $choice;
+    }
+
+    /**
+     * Check if package name is available.
+     *
+     * @param  string $name        Package name
+     * @param  string $packagePath Full package path
+     * @return bool   True if available
+     */
+    private function checkNameAvailability(string $name, string $packagePath): bool
+    {
+        if (is_dir($packagePath)) {
+            $this->error("Package '{$name}' already exists");
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Create package directory structure.
+     *
+     * @param  string $packagePath Full package path
+     * @return bool   True on success
+     */
+    private function createPackageStructure(string $packagePath): bool
+    {
+        try {
+            $this->filesystem()->makeDirectory($packagePath, 0755, true);
+
+            return true;
+        } catch (Exception $exception) {
+            $this->error("Failed to create package directory: {$exception->getMessage()}");
+
+            return false;
+        }
+    }
+
+    /**
+     * Generate configuration files from stubs.
+     *
+     * @param  InputInterface                              $input       Command input
+     * @param  string                                      $name        Package name
+     * @param  string                                      $type        Package type
+     * @param  string                                      $packagePath Full package path
+     * @param  \PhpHive\Cli\Contracts\PackageTypeInterface $packageType Package type instance
+     * @return bool                                        True on success
+     */
+    private function generateConfigFiles(InputInterface $input, string $name, string $type, string $packagePath, \PhpHive\Cli\Contracts\PackageTypeInterface $packageType): bool
+    {
+        try {
+            // Get stub path for the selected package type
+            $stubsBasePath = dirname(__DIR__, 4) . '/stubs';
+            $stubPath = $packageType->getStubPath($stubsBasePath);
+
+            if (! is_dir($stubPath)) {
+                $this->error("Stub directory not found for package type '{$type}' at: {$stubPath}");
+
+                return false;
+            }
+
+            // Prepare stub variables using package type
+            $description = $input->getOption('description') ?? "A {$type} package";
+            $variables = $packageType->prepareVariables($name, $description);
+
+            // Copy and process all stub files with package type naming rules
+            $this->copyStubFiles($stubPath, $packagePath, $variables, $this->filesystem(), $packageType->getFileNamingRules());
+
+            return true;
+        } catch (Exception $exception) {
+            $this->error("Failed to generate configuration files: {$exception->getMessage()}");
+
+            return false;
+        }
+    }
+
+    /**
+     * Install package dependencies.
+     *
+     * @param  \PhpHive\Cli\Contracts\PackageTypeInterface $packageType Package type instance
+     * @param  string                                      $packagePath Full package path
+     * @return bool                                        True on success
+     */
+    private function installDependencies(\PhpHive\Cli\Contracts\PackageTypeInterface $packageType, string $packagePath): bool
+    {
+        try {
+            $packageType->postCreate($packagePath);
+
+            return true;
+        } catch (Exception $exception) {
+            // Log error but don't fail the command
+            return false;
+        }
     }
 
     /**

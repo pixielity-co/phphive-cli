@@ -153,12 +153,13 @@ final class MakeWorkspaceCommand extends BaseCommand
      * Execute the make:workspace command.
      *
      * This method orchestrates the entire workspace creation process:
-     * 1. Gets workspace name (from argument or prompt)
-     * 2. Validates the name
-     * 3. Clones the template repository
-     * 4. Updates configuration with new name
-     * 5. Initializes fresh git repository
-     * 6. Displays success message with next steps
+     * 1. Runs preflight checks to validate environment
+     * 2. Gets workspace name with smart suggestions if taken
+     * 3. Validates the name
+     * 4. Clones the template repository
+     * 5. Updates configuration with new name
+     * 6. Initializes fresh git repository
+     * 7. Displays success message with next steps
      *
      * @param  InputInterface  $input   Command input (arguments and options)
      * @param  OutputInterface $_output Command output (for displaying messages)
@@ -169,14 +170,98 @@ final class MakeWorkspaceCommand extends BaseCommand
         // Display intro banner
         $this->intro('Create New Workspace');
 
+        // Step 1: Run preflight checks
+        $this->info('Running environment checks...');
+        $preflightResult = $this->runPreflightChecks();
+
+        if ($preflightResult->failed()) {
+            return Command::FAILURE;
+        }
+
+        $this->line('');
+
+        // Step 2: Get and validate workspace name
+        $name = $this->getValidatedWorkspaceName($input);
+
+        // Step 3: Execute workspace creation with progress feedback
+        $steps = [
+            'Cloning workspace template' => fn () => $this->cloneTemplate($name),
+            'Configuring workspace' => fn () => $this->updateWorkspaceConfig($name),
+        ];
+
+        $this->line('');
+        $this->info("Creating workspace: {$name}");
+        $this->line('');
+
+        foreach ($steps as $message => $step) {
+            $result = $this->spin($step, "{$message}...");
+
+            if ($result !== 0 && $result !== true) {
+                $this->error("Failed: {$message}");
+
+                return Command::FAILURE;
+            }
+
+            $this->comment("✓ {$message} complete");
+        }
+
+        // Step 4: Display success summary
+        $this->line('');
+        $this->outro('🎉 Workspace created successfully!');
+        $this->line('');
+        $this->comment('Next steps:');
+        $this->line("  1. cd {$name}");
+        $this->line('  2. pnpm install');
+        $this->line('  3. composer install');
+        $this->line('  4. Start building!');
+
+        return Command::SUCCESS;
+    }
+
+    /**
+     * Run preflight checks to validate environment.
+     */
+    private function runPreflightChecks(): \PhpHive\Cli\Support\PreflightResult
+    {
+        $checker = new \PhpHive\Cli\Support\PreflightChecker($this->process());
+        $result = $checker->check();
+
+        // Display check results
+        foreach ($result->checks as $checkName => $checkResult) {
+            if ($checkResult['passed']) {
+                $this->comment("✓ {$checkName}: {$checkResult['message']}");
+            } else {
+                $this->error("✗ {$checkName}: {$checkResult['message']}");
+
+                if (isset($checkResult['fix'])) {
+                    $this->line('');
+                    $this->note($checkResult['fix'], 'Suggested fix');
+                }
+            }
+        }
+
+        if ($result->passed) {
+            $this->line('');
+            $this->info('✓ All checks passed');
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get and validate workspace name with smart suggestions.
+     *
+     * @return string Validated workspace name
+     */
+    private function getValidatedWorkspaceName(InputInterface $input): string
+    {
         // Get workspace name from argument or prompt
         $name = $this->argument('name');
 
         if (($name === null || $name === '') && ! $input->isInteractive()) {
             // Non-interactive mode without name - error
             $this->error('Workspace name is required in non-interactive mode');
-
-            return Command::FAILURE;
+            exit(Command::FAILURE);
         }
 
         if ($name === null || $name === '') {
@@ -194,49 +279,64 @@ final class MakeWorkspaceCommand extends BaseCommand
 
         if ($validation !== null) {
             $this->error($validation);
-
-            return Command::FAILURE;
+            exit(Command::FAILURE);
         }
 
         // Check if directory already exists
-        if (is_dir($name)) {
-            $this->error("Directory '{$name}' already exists");
+        if (! is_dir($name)) {
+            $this->info("✓ Workspace name '{$name}' is available");
 
-            return Command::FAILURE;
+            return $name;
         }
 
-        // Clone template repository
-        $this->info("Creating workspace: {$name}");
+        // Name is taken, offer suggestions
+        $this->warning("Directory '{$name}' already exists");
+        $this->line('');
 
-        $cloneResult = $this->spin(
-            fn (): int => $this->cloneTemplate($name),
-            'Cloning workspace template...',
+        $suggestionService = new \PhpHive\Cli\Support\NameSuggestionService();
+        $suggestions = $suggestionService->suggest(
+            $name,
+            'workspace',
+            fn ($suggestedName) => ! is_dir($suggestedName)
         );
 
-        if ($cloneResult !== 0) {
-            $this->error('Failed to clone template repository');
-
-            return Command::FAILURE;
+        if (count($suggestions) === 0) {
+            $this->error('Could not generate alternative names. Please choose a different name.');
+            exit(Command::FAILURE);
         }
 
-        // Update workspace configuration
-        $this->spin(
-            fn () => $this->updateWorkspaceConfig($name),
-            'Configuring workspace...',
+        // Get the best suggestion
+        $bestSuggestion = $suggestionService->getBestSuggestion($suggestions);
+
+        // Display suggestions with recommendation
+        $this->comment('Suggested names:');
+        $index = 1;
+        foreach ($suggestions as $suggestion) {
+            $marker = $suggestion === $bestSuggestion ? ' (recommended)' : '';
+            $this->line("  {$index}. {$suggestion}{$marker}");
+            $index++;
+        }
+
+        $this->line('');
+
+        // Let user select or enter custom name with best suggestion pre-filled
+        $choice = $this->suggest(
+            label: 'Choose an available name',
+            options: $suggestions,
+            placeholder: $bestSuggestion ?? 'Enter a custom name',
+            default: $bestSuggestion ?? '',
+            required: true
         );
 
-        // Display success message
-        $this->outro('✓ Workspace created successfully!');
+        // Validate the chosen name
+        if (is_dir($choice)) {
+            $this->error("Directory '{$choice}' also exists. Please try again with a different name.");
+            exit(Command::FAILURE);
+        }
 
-        // Show next steps
-        $this->info('Next steps:');
-        $this->note(
-            "  cd {$name}\n" .
-            "  pnpm install\n" .
-            '  composer install',
-        );
+        $this->info("✓ Workspace name '{$choice}' is available");
 
-        return Command::SUCCESS;
+        return $choice;
     }
 
     /**
