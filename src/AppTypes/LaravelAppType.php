@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace PhpHive\Cli\AppTypes;
 
+use Override;
+use PhpHive\Cli\Contracts\AppTypeInterface;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -99,6 +101,7 @@ class LaravelAppType extends AbstractAppType
      * @param  OutputInterface      $output Console output interface for displaying messages
      * @return array<string, mixed> Configuration array with all collected settings
      */
+    #[Override]
     public function collectConfiguration(InputInterface $input, OutputInterface $output): array
     {
         // Store input/output for use in helper methods
@@ -113,14 +116,14 @@ class LaravelAppType extends AbstractAppType
         // =====================================================================
 
         // Application name - used for directory name, package name, and namespace
-        $config['name'] = $this->text(
+        $config[AppTypeInterface::CONFIG_NAME] = $this->text(
             label: 'Application name',
             placeholder: 'my-app',
             required: true
         );
 
         // Application description - used in composer.json and documentation
-        $config['description'] = $this->text(
+        $config[AppTypeInterface::CONFIG_DESCRIPTION] = $this->text(
             label: 'Application description',
             placeholder: 'A Laravel application',
             required: false
@@ -134,7 +137,7 @@ class LaravelAppType extends AbstractAppType
         // - Version 12: Latest features and improvements
         // - Version 11: Long-term support (LTS) with extended maintenance
         // - Version 10: Previous stable version
-        $config['laravel_version'] = $this->select(
+        $config[AppTypeInterface::CONFIG_LARAVEL_VERSION] = $this->select(
             label: 'Laravel version',
             options: [
                 'v12' => 'Laravel 12 (Latest)',
@@ -145,7 +148,7 @@ class LaravelAppType extends AbstractAppType
         );
 
         // Extract version number (remove 'v' prefix)
-        $config['laravel_version'] = ltrim((string) $config['laravel_version'], 'v');
+        $config[AppTypeInterface::CONFIG_LARAVEL_VERSION] = ltrim((string) $config[AppTypeInterface::CONFIG_LARAVEL_VERSION], 'v');
 
         // =====================================================================
         // STARTER KIT
@@ -155,7 +158,7 @@ class LaravelAppType extends AbstractAppType
         // - None: No authentication scaffolding
         // - Breeze: Minimal authentication with Blade or Inertia
         // - Jetstream: Full-featured with teams, 2FA, and profile management
-        $config['starter_kit'] = $this->select(
+        $config[AppTypeInterface::CONFIG_STARTER_KIT] = $this->select(
             label: 'Starter kit',
             options: [
                 'none' => 'None',
@@ -171,7 +174,7 @@ class LaravelAppType extends AbstractAppType
 
         // Database driver selection
         // Determines the default database connection in config/database.php
-        $config['database'] = $this->select(
+        $config[AppTypeInterface::CONFIG_DATABASE] = $this->select(
             label: 'Database driver',
             options: [
                 'mysql' => 'MySQL',
@@ -188,28 +191,28 @@ class LaravelAppType extends AbstractAppType
 
         // Laravel Horizon - Queue monitoring dashboard
         // Provides a beautiful dashboard and code-driven configuration for Redis queues
-        $config['install_horizon'] = $this->confirm(
+        $config[AppTypeInterface::CONFIG_INSTALL_HORIZON] = $this->confirm(
             label: 'Install Laravel Horizon (Queue monitoring)?',
             default: false
         );
 
         // Laravel Telescope - Debugging and insight tool
         // Provides insight into requests, exceptions, database queries, queued jobs, etc.
-        $config['install_telescope'] = $this->confirm(
+        $config[AppTypeInterface::CONFIG_INSTALL_TELESCOPE] = $this->confirm(
             label: 'Install Laravel Telescope (Debugging)?',
             default: false
         );
 
         // Laravel Sanctum - API authentication
         // Provides a simple token-based authentication system for SPAs and mobile apps
-        $config['install_sanctum'] = $this->confirm(
+        $config[AppTypeInterface::CONFIG_INSTALL_SANCTUM] = $this->confirm(
             label: 'Install Laravel Sanctum (API authentication)?',
             default: true
         );
 
         // Laravel Octane - High-performance application server
         // Supercharges application performance using Swoole or RoadRunner
-        $config['install_octane'] = $this->confirm(
+        $config[AppTypeInterface::CONFIG_INSTALL_OCTANE] = $this->confirm(
             label: 'Install Laravel Octane (High-performance server)?',
             default: false
         );
@@ -238,7 +241,7 @@ class LaravelAppType extends AbstractAppType
     public function getInstallCommand(array $config): string
     {
         // Extract Laravel version from config, default to version 12
-        $version = $config['laravel_version'] ?? '12';
+        $version = $config[AppTypeInterface::CONFIG_LARAVEL_VERSION] ?? '12';
 
         // Return Composer create-project command with version constraint
         // The .x allows any patch version (e.g., 12.0, 12.1, 12.2)
@@ -276,6 +279,9 @@ class LaravelAppType extends AbstractAppType
         // MONOREPO MODULES SUPPORT
         // =====================================================================
 
+        // Allow wikimedia/composer-merge-plugin (required by nwidart/laravel-modules)
+        $commands[] = 'composer config --no-plugins allow-plugins.wikimedia/composer-merge-plugin true';
+
         // Install Laravel Modules package for modular development
         // This allows the app to load modules from the monorepo packages directory
         $commands[] = 'composer require nwidart/laravel-modules';
@@ -298,7 +304,7 @@ class LaravelAppType extends AbstractAppType
 
         // Install Laravel Breeze if selected
         // Breeze provides minimal authentication scaffolding
-        if (($config['starter_kit'] ?? 'none') === 'breeze') {
+        if (($config[AppTypeInterface::CONFIG_STARTER_KIT] ?? 'none') === 'breeze') {
             // Install Breeze as a dev dependency
             $commands[] = 'composer require laravel/breeze --dev';
 
@@ -308,7 +314,7 @@ class LaravelAppType extends AbstractAppType
 
         // Install Laravel Jetstream if selected
         // Jetstream provides full-featured authentication with teams and 2FA
-        elseif (($config['starter_kit'] ?? 'none') === 'jetstream') {
+        elseif (($config[AppTypeInterface::CONFIG_STARTER_KIT] ?? 'none') === 'jetstream') {
             // Install Jetstream as a production dependency
             $commands[] = 'composer require laravel/jetstream';
 
@@ -323,28 +329,28 @@ class LaravelAppType extends AbstractAppType
 
         // Install Laravel Horizon if requested
         // Horizon provides a dashboard for monitoring Redis queues
-        if (($config['install_horizon'] ?? false) === true) {
+        if (($config[AppTypeInterface::CONFIG_INSTALL_HORIZON] ?? false) === true) {
             $commands[] = 'composer require laravel/horizon';
             $commands[] = 'php artisan horizon:install';
         }
 
         // Install Laravel Telescope if requested
         // Telescope provides debugging and insight into application behavior
-        if (($config['install_telescope'] ?? false) === true) {
+        if (($config[AppTypeInterface::CONFIG_INSTALL_TELESCOPE] ?? false) === true) {
             $commands[] = 'composer require laravel/telescope --dev';
             $commands[] = 'php artisan telescope:install';
         }
 
         // Install Laravel Sanctum if requested
         // Sanctum provides API token authentication
-        if (($config['install_sanctum'] ?? false) === true) {
+        if (($config[AppTypeInterface::CONFIG_INSTALL_SANCTUM] ?? false) === true) {
             // Publish Sanctum configuration and migrations
             $commands[] = 'php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"';
         }
 
         // Install Laravel Octane if requested
         // Octane provides high-performance application server with Swoole/RoadRunner
-        if (($config['install_octane'] ?? false) === true) {
+        if (($config[AppTypeInterface::CONFIG_INSTALL_OCTANE] ?? false) === true) {
             $commands[] = 'composer require laravel/octane';
             $commands[] = 'php artisan octane:install --server=swoole';
         }
@@ -423,10 +429,10 @@ class LaravelAppType extends AbstractAppType
         return [
             ...$common,
             // Database driver for .env and config/database.php
-            '{{DATABASE_DRIVER}}' => $config['database'] ?? 'mysql',
+            AppTypeInterface::STUB_DATABASE_DRIVER => $config[AppTypeInterface::CONFIG_DATABASE] ?? 'mysql',
 
             // Laravel version for composer.json constraints
-            '{{LARAVEL_VERSION}}' => $config['laravel_version'] ?? '12',
+            AppTypeInterface::STUB_LARAVEL_VERSION => $config[AppTypeInterface::CONFIG_LARAVEL_VERSION] ?? '12',
         ];
     }
 }
