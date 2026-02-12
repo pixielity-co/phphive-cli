@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ec9f9643c637532df4fd1a07352f2f5d",
+    "content-hash": "e588d3c8d22a530a87ec669528fc41d8",
     "packages": [
         {
             "name": "carbonphp/carbon-doctrine-types",
@@ -721,6 +721,66 @@
                 }
             ],
             "time": "2026-01-29T09:26:29+00:00"
+        },
+        {
+            "name": "pixielity/stub-generator",
+            "version": "v1.0.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/pixielity-co/stub-generator.git",
+                "reference": "ac6fe066c728739cd0c5dccb0258de169d54f4c3"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/pixielity-co/stub-generator/zipball/ac6fe066c728739cd0c5dccb0258de169d54f4c3",
+                "reference": "ac6fe066c728739cd0c5dccb0258de169d54f4c3",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^8.4"
+            },
+            "require-dev": {
+                "laravel/pint": "^1.18",
+                "mockery/mockery": "^1.6",
+                "phpstan/extension-installer": "^1.4",
+                "phpstan/phpstan": "^2.0",
+                "phpstan/phpstan-strict-rules": "^2.0",
+                "phpunit/phpunit": "^11.5",
+                "rector/rector": "^2.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Pixielity\\StubGenerator\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Pixielity Team",
+                    "email": "team@pixielity.co"
+                }
+            ],
+            "description": "A powerful, fluent stub template processor for PHP with support for placeholders and optional sections",
+            "homepage": "https://github.com/pixielity-co/stub-generator",
+            "keywords": [
+                "code-generation",
+                "generator",
+                "php",
+                "placeholder",
+                "scaffolding",
+                "stub",
+                "template"
+            ],
+            "support": {
+                "docs": "https://github.com/pixielity-co/stub-generator#readme",
+                "issues": "https://github.com/pixielity-co/stub-generator/issues",
+                "source": "https://github.com/pixielity-co/stub-generator"
+            },
+            "time": "2026-02-12T13:58:35+00:00"
         },
         {
             "name": "psr/clock",
