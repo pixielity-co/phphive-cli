@@ -13,6 +13,9 @@ use PhpHive\Cli\Console\Commands\BaseCommand;
 use PhpHive\Cli\Contracts\AppTypeInterface;
 use PhpHive\Cli\Factories\AppTypeFactory;
 use PhpHive\Cli\Support\Filesystem;
+use PhpHive\Cli\Support\NameSuggestionService;
+use PhpHive\Cli\Support\PreflightChecker;
+use PhpHive\Cli\Support\PreflightResult;
 
 use function str_replace;
 
@@ -408,11 +411,11 @@ final class CreateAppCommand extends BaseCommand
         $config = $appType->collectConfiguration($input, $output);
 
         // Set name and description from command arguments/options
-        $config['name'] = $name;
+        $config[AppTypeInterface::CONFIG_NAME] = $name;
 
         // Set description if not already set by collectConfiguration (from --description option)
-        if (! isset($config['description']) || $config['description'] === '') {
-            $config['description'] = "A {$appType->getName()} application";
+        if (! isset($config[AppTypeInterface::CONFIG_DESCRIPTION]) || $config[AppTypeInterface::CONFIG_DESCRIPTION] === '') {
+            $config[AppTypeInterface::CONFIG_DESCRIPTION] = "A {$appType->getName()} application";
         }
 
         // Step 5: Execute application creation with progress feedback
@@ -421,11 +424,11 @@ final class CreateAppCommand extends BaseCommand
         $filesystem = $this->filesystem();
 
         $steps = [
-            'Creating application structure' => fn () => $this->createAppStructure($appPath, $filesystem),
-            'Running pre-installation setup' => fn () => $this->runPreInstallCommands($appType, $config, $appPath),
-            'Installing application framework' => fn () => $this->runInstallCommand($appType, $config, $appPath),
+            'Creating application structure' => fn (): bool => $this->createAppStructure($appPath, $filesystem),
+            'Running pre-installation setup' => fn (): bool => $this->runPreInstallCommands($appType, $config, $appPath),
+            'Installing application framework' => fn (): bool => $this->runInstallCommand($appType, $config, $appPath),
             'Processing configuration files' => fn () => $this->processStubs($appType, $config, $appPath, $filesystem),
-            'Running post-installation tasks' => fn () => $this->runPostInstallCommands($appType, $config, $appPath),
+            'Running post-installation tasks' => fn (): bool => $this->runPostInstallCommands($appType, $config, $appPath),
         ];
 
         $this->line('');
@@ -454,13 +457,13 @@ final class CreateAppCommand extends BaseCommand
     /**
      * Run preflight checks to validate environment.
      */
-    private function runPreflightChecks(): \PhpHive\Cli\Support\PreflightResult
+    private function runPreflightChecks(): PreflightResult
     {
-        $checker = new \PhpHive\Cli\Support\PreflightChecker($this->process());
-        $result = $checker->check();
+        $preflightChecker = new PreflightChecker($this->process());
+        $preflightResult = $preflightChecker->check();
 
         // Display check results
-        foreach ($result->checks as $checkName => $checkResult) {
+        foreach ($preflightResult->checks as $checkName => $checkResult) {
             if ($checkResult['passed']) {
                 $this->comment("✓ {$checkName}: {$checkResult['message']}");
             } else {
@@ -473,12 +476,12 @@ final class CreateAppCommand extends BaseCommand
             }
         }
 
-        if ($result->passed) {
+        if ($preflightResult->passed) {
             $this->line('');
             $this->info('✓ All checks passed');
         }
 
-        return $result;
+        return $preflightResult;
     }
 
     /**
@@ -511,20 +514,20 @@ final class CreateAppCommand extends BaseCommand
         $this->warning("Application '{$name}' already exists");
         $this->line('');
 
-        $suggestionService = new \PhpHive\Cli\Support\NameSuggestionService();
-        $suggestions = $suggestionService->suggest(
+        $nameSuggestionService = new NameSuggestionService();
+        $suggestions = $nameSuggestionService->suggest(
             $name,
             'app',
-            fn ($suggestedName) => $this->validateAppName($suggestedName) === null && ! is_dir("{$root}/apps/{$suggestedName}")
+            fn (?string $suggestedName): bool => $this->validateAppName($suggestedName) === null && ! is_dir("{$root}/apps/{$suggestedName}")
         );
 
-        if (count($suggestions) === 0) {
+        if ($suggestions === []) {
             $this->error('Could not generate alternative names. Please choose a different name.');
             exit(Command::FAILURE);
         }
 
         // Get the best suggestion
-        $bestSuggestion = $suggestionService->getBestSuggestion($suggestions);
+        $bestSuggestion = $nameSuggestionService->getBestSuggestion($suggestions);
 
         // Display suggestions with recommendation
         $this->comment('Suggested names:');

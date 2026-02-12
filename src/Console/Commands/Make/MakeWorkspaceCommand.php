@@ -17,6 +17,9 @@ use const JSON_UNESCAPED_SLASHES;
 
 use Override;
 use PhpHive\Cli\Console\Commands\BaseCommand;
+use PhpHive\Cli\Support\NameSuggestionService;
+use PhpHive\Cli\Support\PreflightChecker;
+use PhpHive\Cli\Support\PreflightResult;
 
 use function preg_match;
 use function str_contains;
@@ -187,8 +190,8 @@ final class MakeWorkspaceCommand extends BaseCommand
 
         // Step 3: Execute workspace creation with progress feedback
         $steps = [
-            'Cloning workspace template' => fn () => $this->cloneTemplate($name),
-            'Configuring workspace' => fn () => $this->updateWorkspaceConfig($name),
+            'Cloning workspace template' => fn (): int => $this->cloneTemplate($name),
+            'Configuring workspace' => fn (): bool => $this->updateWorkspaceConfig($name),
         ];
 
         $this->line('');
@@ -223,13 +226,13 @@ final class MakeWorkspaceCommand extends BaseCommand
     /**
      * Run preflight checks to validate environment.
      */
-    private function runPreflightChecks(): \PhpHive\Cli\Support\PreflightResult
+    private function runPreflightChecks(): PreflightResult
     {
-        $checker = new \PhpHive\Cli\Support\PreflightChecker($this->process());
-        $result = $checker->check();
+        $preflightChecker = new PreflightChecker($this->process());
+        $preflightResult = $preflightChecker->check();
 
         // Display check results
-        foreach ($result->checks as $checkName => $checkResult) {
+        foreach ($preflightResult->checks as $checkName => $checkResult) {
             if ($checkResult['passed']) {
                 $this->comment("✓ {$checkName}: {$checkResult['message']}");
             } else {
@@ -242,12 +245,12 @@ final class MakeWorkspaceCommand extends BaseCommand
             }
         }
 
-        if ($result->passed) {
+        if ($preflightResult->passed) {
             $this->line('');
             $this->info('✓ All checks passed');
         }
 
-        return $result;
+        return $preflightResult;
     }
 
     /**
@@ -295,20 +298,20 @@ final class MakeWorkspaceCommand extends BaseCommand
         $this->warning("Directory '{$name}' already exists");
         $this->line('');
 
-        $suggestionService = new \PhpHive\Cli\Support\NameSuggestionService();
-        $suggestions = $suggestionService->suggest(
+        $nameSuggestionService = new NameSuggestionService();
+        $suggestions = $nameSuggestionService->suggest(
             $name,
             'workspace',
-            fn ($suggestedName) => ! is_dir($suggestedName)
+            fn ($suggestedName): bool => ! is_dir($suggestedName)
         );
 
-        if (count($suggestions) === 0) {
+        if ($suggestions === []) {
             $this->error('Could not generate alternative names. Please choose a different name.');
             exit(Command::FAILURE);
         }
 
         // Get the best suggestion
-        $bestSuggestion = $suggestionService->getBestSuggestion($suggestions);
+        $bestSuggestion = $nameSuggestionService->getBestSuggestion($suggestions);
 
         // Display suggestions with recommendation
         $this->comment('Suggested names:');
@@ -448,7 +451,7 @@ final class MakeWorkspaceCommand extends BaseCommand
             exec("cd {$name} && git init && git add . && git commit -m 'Initial commit from hive-template' 2>&1");
 
             return true;
-        } catch (Exception $exception) {
+        } catch (Exception) {
             return false;
         }
     }

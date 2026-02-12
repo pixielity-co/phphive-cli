@@ -11,8 +11,12 @@ use function is_dir;
 
 use Override;
 use PhpHive\Cli\Console\Commands\BaseCommand;
+use PhpHive\Cli\Contracts\PackageTypeInterface;
 use PhpHive\Cli\Factories\PackageTypeFactory;
 use PhpHive\Cli\Support\Filesystem;
+use PhpHive\Cli\Support\NameSuggestionService;
+use PhpHive\Cli\Support\PreflightChecker;
+use PhpHive\Cli\Support\PreflightResult;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
@@ -236,9 +240,9 @@ final class CreatePackageCommand extends BaseCommand
         $packagePath = "{$root}/packages/{$name}";
 
         $steps = [
-            'Checking name availability' => fn () => $this->checkNameAvailability($name, $packagePath),
-            'Creating package structure' => fn () => $this->createPackageStructure($packagePath),
-            'Generating configuration files' => fn () => $this->generateConfigFiles($input, $name, $type, $packagePath, $packageType),
+            'Checking name availability' => fn (): bool => $this->checkNameAvailability($name, $packagePath),
+            'Creating package structure' => fn (): bool => $this->createPackageStructure($packagePath),
+            'Generating configuration files' => fn (): bool => $this->generateConfigFiles($input, $name, $type, $packagePath, $packageType),
         ];
 
         foreach ($steps as $message => $step) {
@@ -254,7 +258,7 @@ final class CreatePackageCommand extends BaseCommand
         // Step 5: Install dependencies with progress feedback
         $this->line('');
         $installResult = $this->spin(
-            fn () => $this->installDependencies($packageType, $packagePath),
+            fn (): bool => $this->installDependencies($packageType, $packagePath),
             'Installing dependencies...'
         );
 
@@ -279,13 +283,13 @@ final class CreatePackageCommand extends BaseCommand
     /**
      * Run preflight checks to validate environment.
      */
-    private function runPreflightChecks(): \PhpHive\Cli\Support\PreflightResult
+    private function runPreflightChecks(): PreflightResult
     {
-        $checker = new \PhpHive\Cli\Support\PreflightChecker($this->process());
-        $result = $checker->check();
+        $preflightChecker = new PreflightChecker($this->process());
+        $preflightResult = $preflightChecker->check();
 
         // Display check results
-        foreach ($result->checks as $checkName => $checkResult) {
+        foreach ($preflightResult->checks as $checkName => $checkResult) {
             if ($checkResult['passed']) {
                 $this->comment("✓ {$checkName}: {$checkResult['message']}");
             } else {
@@ -298,12 +302,12 @@ final class CreatePackageCommand extends BaseCommand
             }
         }
 
-        if ($result->passed) {
+        if ($preflightResult->passed) {
             $this->line('');
             $this->info('✓ All checks passed');
         }
 
-        return $result;
+        return $preflightResult;
     }
 
     /**
@@ -336,20 +340,20 @@ final class CreatePackageCommand extends BaseCommand
         $this->warning("Package '{$name}' already exists");
         $this->line('');
 
-        $suggestionService = new \PhpHive\Cli\Support\NameSuggestionService();
-        $suggestions = $suggestionService->suggest(
+        $nameSuggestionService = new NameSuggestionService();
+        $suggestions = $nameSuggestionService->suggest(
             $name,
             'package',
-            fn ($suggestedName) => $this->validatePackageName($suggestedName) === null && ! is_dir("{$root}/packages/{$suggestedName}")
+            fn (?string $suggestedName): bool => $this->validatePackageName($suggestedName) === null && ! is_dir("{$root}/packages/{$suggestedName}")
         );
 
-        if (count($suggestions) === 0) {
+        if ($suggestions === []) {
             $this->error('Could not generate alternative names. Please choose a different name.');
             exit(Command::FAILURE);
         }
 
         // Get the best suggestion
-        $bestSuggestion = $suggestionService->getBestSuggestion($suggestions);
+        $bestSuggestion = $nameSuggestionService->getBestSuggestion($suggestions);
 
         // Display suggestions with recommendation
         $this->comment('Suggested names:');
@@ -460,14 +464,14 @@ final class CreatePackageCommand extends BaseCommand
     /**
      * Generate configuration files from stubs.
      *
-     * @param  InputInterface                              $input       Command input
-     * @param  string                                      $name        Package name
-     * @param  string                                      $type        Package type
-     * @param  string                                      $packagePath Full package path
-     * @param  \PhpHive\Cli\Contracts\PackageTypeInterface $packageType Package type instance
-     * @return bool                                        True on success
+     * @param  InputInterface       $input       Command input
+     * @param  string               $name        Package name
+     * @param  string               $type        Package type
+     * @param  string               $packagePath Full package path
+     * @param  PackageTypeInterface $packageType Package type instance
+     * @return bool                 True on success
      */
-    private function generateConfigFiles(InputInterface $input, string $name, string $type, string $packagePath, \PhpHive\Cli\Contracts\PackageTypeInterface $packageType): bool
+    private function generateConfigFiles(InputInterface $input, string $name, string $type, string $packagePath, PackageTypeInterface $packageType): bool
     {
         try {
             // Get stub path for the selected package type
@@ -498,17 +502,17 @@ final class CreatePackageCommand extends BaseCommand
     /**
      * Install package dependencies.
      *
-     * @param  \PhpHive\Cli\Contracts\PackageTypeInterface $packageType Package type instance
-     * @param  string                                      $packagePath Full package path
-     * @return bool                                        True on success
+     * @param  PackageTypeInterface $packageType Package type instance
+     * @param  string               $packagePath Full package path
+     * @return bool                 True on success
      */
-    private function installDependencies(\PhpHive\Cli\Contracts\PackageTypeInterface $packageType, string $packagePath): bool
+    private function installDependencies(PackageTypeInterface $packageType, string $packagePath): bool
     {
         try {
             $packageType->postCreate($packagePath);
 
             return true;
-        } catch (Exception $exception) {
+        } catch (Exception) {
             // Log error but don't fail the command
             return false;
         }
@@ -563,11 +567,11 @@ final class CreatePackageCommand extends BaseCommand
                 $isJsonFile = str_ends_with($destinationPath, '.json');
                 $variablesToUse = $variables;
 
-                if ($isJsonFile && isset($variables['{{NAMESPACE}}'])) {
+                if ($isJsonFile && isset($variables[PackageTypeInterface::VAR_NAMESPACE])) {
                     // Escape single backslashes to double backslashes for JSON
                     // But don't double-escape already escaped backslashes
-                    $namespace = $variables['{{NAMESPACE}}'];
-                    $variablesToUse['{{NAMESPACE}}'] = str_replace('\\', '\\\\', $namespace);
+                    $namespace = $variables[PackageTypeInterface::VAR_NAMESPACE];
+                    $variablesToUse[PackageTypeInterface::VAR_NAMESPACE] = str_replace('\\', '\\\\', $namespace);
                 }
 
                 // Replace variables
