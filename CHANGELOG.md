@@ -27,6 +27,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Provides detailed feedback using Laravel Prompts
   - Seamless integration with existing local MySQL setup
 
+- **Command-Line Flags for Magento**: Added comprehensive flags to `make:app` command
+  - `--description`: Application description
+  - `--magento-version`: Magento version (2.4.6, 2.4.7)
+  - `--magento-public-key`: Magento public key from marketplace
+  - `--magento-private-key`: Magento private key from marketplace
+  - `--db-host`, `--db-port`, `--db-name`, `--db-user`, `--db-password`: Database configuration
+  - `--admin-firstname`, `--admin-lastname`, `--admin-email`, `--admin-user`, `--admin-password`: Admin user
+  - `--base-url`, `--language`, `--currency`, `--timezone`: Store configuration
+  - `--sample-data`: Install sample data flag
+  - `--elasticsearch`, `--elasticsearch-host`, `--elasticsearch-port`: Elasticsearch configuration
+  - `--redis`, `--redis-host`, `--redis-port`: Redis configuration
+  - `--use-docker`: Force Docker database setup
+  - `--no-docker`: Skip Docker and use local MySQL
+  - Enables fully non-interactive Magento app creation
+
 ### Changed
 
 - **Magento App Creation**: Now uses Docker-first database setup
@@ -34,12 +49,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Falls back to local MySQL setup if Docker unavailable or declined
   - Supports both MySQL and MariaDB via Docker
   - Simplified database configuration workflow
+  - All configuration can be provided via command-line flags
 
 ### Fixed
 
 - **PHPStan Type Safety**: Fixed type mismatch in `setupDockerDatabase` method
   - Cast `select()` return value to string for `generateDockerComposeFile()`
   - Added baseline entries for `method_exists()` checks in trait composition
+  - Fixed boolean type checks for optional feature flags
 
 ## [1.0.15] - 2026-02-12
 

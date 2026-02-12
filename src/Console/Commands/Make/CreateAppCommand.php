@@ -111,6 +111,169 @@ final class CreateAppCommand extends BaseCommand
                 InputOption::VALUE_REQUIRED,
                 'Application type (laravel, symfony, magento, skeleton)',
             )
+            ->addOption(
+                'description',
+                'd',
+                InputOption::VALUE_REQUIRED,
+                'Application description',
+            )
+            // Magento-specific options
+            ->addOption(
+                'magento-version',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Magento version (2.4.6, 2.4.7)',
+            )
+            ->addOption(
+                'magento-public-key',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Magento public key (username) from marketplace.magento.com',
+            )
+            ->addOption(
+                'magento-private-key',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Magento private key (password) from marketplace.magento.com',
+            )
+            ->addOption(
+                'db-host',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Database host',
+            )
+            ->addOption(
+                'db-port',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Database port',
+            )
+            ->addOption(
+                'db-name',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Database name',
+            )
+            ->addOption(
+                'db-user',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Database username',
+            )
+            ->addOption(
+                'db-password',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Database password',
+            )
+            ->addOption(
+                'admin-firstname',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Admin first name',
+            )
+            ->addOption(
+                'admin-lastname',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Admin last name',
+            )
+            ->addOption(
+                'admin-email',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Admin email address',
+            )
+            ->addOption(
+                'admin-user',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Admin username',
+            )
+            ->addOption(
+                'admin-password',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Admin password',
+            )
+            ->addOption(
+                'base-url',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Store base URL',
+            )
+            ->addOption(
+                'language',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Default language (en_US, en_GB, fr_FR, de_DE, es_ES)',
+            )
+            ->addOption(
+                'currency',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Default currency (USD, EUR, GBP)',
+            )
+            ->addOption(
+                'timezone',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Default timezone',
+            )
+            ->addOption(
+                'sample-data',
+                null,
+                InputOption::VALUE_NONE,
+                'Install sample data',
+            )
+            ->addOption(
+                'elasticsearch',
+                null,
+                InputOption::VALUE_NONE,
+                'Use Elasticsearch for search',
+            )
+            ->addOption(
+                'elasticsearch-host',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Elasticsearch host',
+            )
+            ->addOption(
+                'elasticsearch-port',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Elasticsearch port',
+            )
+            ->addOption(
+                'redis',
+                null,
+                InputOption::VALUE_NONE,
+                'Use Redis for caching',
+            )
+            ->addOption(
+                'redis-host',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Redis host',
+            )
+            ->addOption(
+                'redis-port',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Redis port',
+            )
+            ->addOption(
+                'use-docker',
+                null,
+                InputOption::VALUE_NONE,
+                'Use Docker for database (if available)',
+            )
+            ->addOption(
+                'no-docker',
+                null,
+                InputOption::VALUE_NONE,
+                'Do not use Docker for database',
+            )
             ->setHelp(
                 <<<'HELP'
                 The <info>create:app</info> command scaffolds a new PHP application.
@@ -119,6 +282,25 @@ final class CreateAppCommand extends BaseCommand
                   <info>hive create:app admin</info>
                   <info>hive create:app shop --type=magento</info>
                   <info>hive create:app api --type=symfony</info>
+
+                <comment>Magento with flags:</comment>
+                  <info>hive create:app shop --type=magento \
+                    --description="E-commerce store" \
+                    --magento-version=2.4.7 \
+                    --magento-public-key=YOUR_PUBLIC_KEY \
+                    --magento-private-key=YOUR_PRIVATE_KEY \
+                    --db-name=shop_db \
+                    --db-user=shop_user \
+                    --db-password=secret \
+                    --admin-firstname=Admin \
+                    --admin-lastname=User \
+                    --admin-email=admin@example.com \
+                    --admin-user=admin \
+                    --admin-password=Admin123! \
+                    --base-url=http://localhost/ \
+                    --language=en_US \
+                    --currency=USD \
+                    --timezone=America/New_York</info>
 
                 Available app types: laravel, symfony, magento, skeleton
                 HELP

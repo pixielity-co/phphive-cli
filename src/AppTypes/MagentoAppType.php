@@ -134,15 +134,11 @@ class MagentoAppType extends AbstractAppType
         // BASIC INFORMATION
         // =====================================================================
 
-        // Application name - used for directory name, package name, and store name
-        $config['name'] = $this->askText(
-            label: 'Application name',
-            placeholder: 'my-shop',
-            required: true
-        );
+        // Application name - from argument
+        $config['name'] = $input->getArgument('name');
 
-        // Application description - used in composer.json and documentation
-        $config['description'] = $this->askText(
+        // Application description - from option or prompt
+        $config['description'] = $input->getOption('description') ?? $this->askText(
             label: 'Application description',
             placeholder: 'A Magento e-commerce store',
             required: false
@@ -152,19 +148,24 @@ class MagentoAppType extends AbstractAppType
         // MAGENTO AUTHENTICATION
         // =====================================================================
 
-        // Magento requires authentication keys from repo.magento.com
-        // Users can get these keys from: https://marketplace.magento.com/customer/accessKeys/
-        note('Get your keys from: https://marketplace.magento.com/customer/accessKeys/', 'Magento Authentication Keys');
+        // Check if keys provided via options
+        $publicKey = $input->getOption('magento-public-key');
+        $privateKey = $input->getOption('magento-private-key');
+
+        if ($publicKey === null || $privateKey === null) {
+            // Magento requires authentication keys from repo.magento.com
+            note('Get your keys from: https://marketplace.magento.com/customer/accessKeys/', 'Magento Authentication Keys');
+        }
 
         // Public key (username)
-        $config['magento_public_key'] = $this->askText(
+        $config['magento_public_key'] = $publicKey ?? $this->askText(
             label: 'Magento Public Key (username)',
             placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
             required: true
         );
 
         // Private key (password) - masked input for security
-        $config['magento_private_key'] = $this->askPassword(
+        $config['magento_private_key'] = $privateKey ?? $this->askPassword(
             label: 'Magento Private Key (password)',
             placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
             required: true
@@ -175,9 +176,7 @@ class MagentoAppType extends AbstractAppType
         // =====================================================================
 
         // Magento version selection
-        // - Version 2.4.7: Latest features and improvements
-        // - Version 2.4.6: Previous stable version
-        $config['magento_version'] = $this->askSelect(
+        $config['magento_version'] = $input->getOption('magento-version') ?? $this->askSelect(
             label: 'Magento version',
             options: [
                 '2.4.7' => 'Magento 2.4.7 (Latest)',
@@ -190,24 +189,57 @@ class MagentoAppType extends AbstractAppType
         // DATABASE CONFIGURATION
         // =====================================================================
 
-        // Use Docker-first database setup (supports Docker and local MySQL)
-        // This will automatically detect Docker, offer Docker setup, and fall back to local MySQL
-        $appPath = getcwd() . '/apps/' . $config['name'];
-        $dbConfig = $this->setupDatabase($config['name'], ['mysql', 'mariadb'], $appPath);
+        // Check if database options are provided via flags
+        $dbHost = $input->getOption('db-host');
+        $dbPort = $input->getOption('db-port');
+        $dbName = $input->getOption('db-name');
+        $dbUser = $input->getOption('db-user');
+        $dbPassword = $input->getOption('db-password');
 
-        // Merge database configuration into main config
-        $config['db_host'] = $dbConfig['db_host'];
-        $config['db_port'] = $dbConfig['db_port'];
-        $config['db_name'] = $dbConfig['db_name'];
-        $config['db_user'] = $dbConfig['db_user'];
-        $config['db_password'] = $dbConfig['db_password'];
+        // If all database options provided, use them directly
+        if ($dbHost !== null && $dbName !== null && $dbUser !== null) {
+            $config['db_host'] = $dbHost;
+            $config['db_port'] = $dbPort !== null ? (int) $dbPort : 3306;
+            $config['db_name'] = $dbName;
+            $config['db_user'] = $dbUser;
+            $config['db_password'] = $dbPassword ?? '';
+        } else {
+            // Check Docker preference from flags
+            $useDocker = $input->getOption('use-docker');
+            $noDocker = $input->getOption('no-docker');
+
+            // Use Docker-first database setup (supports Docker and local MySQL)
+            $appPath = getcwd() . '/apps/' . $config['name'];
+
+            // If --no-docker flag is set, skip Docker and go straight to local
+            if ($noDocker === true) {
+                $dbConfig = $this->setupLocalDatabase($config['name']);
+            } elseif ($useDocker === true) {
+                // Force Docker setup
+                $dbConfig = $this->setupDockerDatabase($config['name'], ['mysql', 'mariadb'], $appPath);
+                if ($dbConfig === null) {
+                    // Docker setup failed, fall back to local
+                    $dbConfig = $this->setupLocalDatabase($config['name']);
+                }
+            } else {
+                // Normal flow - Docker-first with prompts
+                $dbConfig = $this->setupDatabase($config['name'], ['mysql', 'mariadb'], $appPath);
+            }
+
+            // Merge database configuration into main config
+            $config['db_host'] = $dbConfig['db_host'];
+            $config['db_port'] = $dbConfig['db_port'];
+            $config['db_name'] = $dbConfig['db_name'];
+            $config['db_user'] = $dbConfig['db_user'];
+            $config['db_password'] = $dbConfig['db_password'];
+        }
 
         // =====================================================================
         // ADMIN USER CONFIGURATION
         // =====================================================================
 
         // Admin first name
-        $config['admin_firstname'] = $this->askText(
+        $config['admin_firstname'] = $input->getOption('admin-firstname') ?? $this->askText(
             label: 'Admin first name',
             placeholder: 'Admin',
             default: 'Admin',
@@ -215,7 +247,7 @@ class MagentoAppType extends AbstractAppType
         );
 
         // Admin last name
-        $config['admin_lastname'] = $this->askText(
+        $config['admin_lastname'] = $input->getOption('admin-lastname') ?? $this->askText(
             label: 'Admin last name',
             placeholder: 'User',
             default: 'User',
@@ -223,7 +255,7 @@ class MagentoAppType extends AbstractAppType
         );
 
         // Admin email
-        $config['admin_email'] = $this->askText(
+        $config['admin_email'] = $input->getOption('admin-email') ?? $this->askText(
             label: 'Admin email',
             placeholder: 'admin@example.com',
             default: 'admin@example.com',
@@ -231,7 +263,7 @@ class MagentoAppType extends AbstractAppType
         );
 
         // Admin username
-        $config['admin_user'] = $this->askText(
+        $config['admin_user'] = $input->getOption('admin-user') ?? $this->askText(
             label: 'Admin username',
             placeholder: 'admin',
             default: 'admin',
@@ -239,7 +271,7 @@ class MagentoAppType extends AbstractAppType
         );
 
         // Admin password
-        $config['admin_password'] = $this->askText(
+        $config['admin_password'] = $input->getOption('admin-password') ?? $this->askText(
             label: 'Admin password (min 7 chars, must include letters and numbers)',
             placeholder: 'Admin123!',
             default: 'Admin123!',
@@ -251,7 +283,7 @@ class MagentoAppType extends AbstractAppType
         // =====================================================================
 
         // Base URL
-        $config['base_url'] = $this->askText(
+        $config['base_url'] = $input->getOption('base-url') ?? $this->askText(
             label: 'Base URL',
             placeholder: 'http://localhost/',
             default: 'http://localhost/',
@@ -259,7 +291,7 @@ class MagentoAppType extends AbstractAppType
         );
 
         // Language
-        $config['language'] = $this->askSelect(
+        $config['language'] = $input->getOption('language') ?? $this->askSelect(
             label: 'Default language',
             options: [
                 'en_US' => 'English (United States)',
@@ -272,7 +304,7 @@ class MagentoAppType extends AbstractAppType
         );
 
         // Currency
-        $config['currency'] = $this->askSelect(
+        $config['currency'] = $input->getOption('currency') ?? $this->askSelect(
             label: 'Default currency',
             options: [
                 'USD' => 'US Dollar (USD)',
@@ -283,7 +315,7 @@ class MagentoAppType extends AbstractAppType
         );
 
         // Timezone
-        $config['timezone'] = $this->askSelect(
+        $config['timezone'] = $input->getOption('timezone') ?? $this->askSelect(
             label: 'Default timezone',
             options: [
                 'America/New_York' => 'America/New_York (EST)',
@@ -300,27 +332,29 @@ class MagentoAppType extends AbstractAppType
         // =====================================================================
 
         // Sample data - Demo products, categories, and content
-        $config['install_sample_data'] = $this->askConfirm(
+        $sampleDataOption = $input->getOption('sample-data');
+        $config['install_sample_data'] = $sampleDataOption !== null ? (bool) $sampleDataOption : $this->askConfirm(
             label: 'Install sample data (demo products and content)?',
             default: false
         );
 
         // Elasticsearch - Search engine (required for production)
-        $config['use_elasticsearch'] = $this->askConfirm(
+        $elasticsearchOption = $input->getOption('elasticsearch');
+        $config['use_elasticsearch'] = $elasticsearchOption !== null ? (bool) $elasticsearchOption : $this->askConfirm(
             label: 'Use Elasticsearch for search?',
             default: true
         );
 
         // Elasticsearch host (if enabled)
         if ($config['use_elasticsearch']) {
-            $config['elasticsearch_host'] = $this->askText(
+            $config['elasticsearch_host'] = $input->getOption('elasticsearch-host') ?? $this->askText(
                 label: 'Elasticsearch host',
                 placeholder: 'localhost',
                 default: 'localhost',
                 required: true
             );
 
-            $config['elasticsearch_port'] = $this->askText(
+            $config['elasticsearch_port'] = $input->getOption('elasticsearch-port') ?? $this->askText(
                 label: 'Elasticsearch port',
                 placeholder: '9200',
                 default: '9200',
@@ -329,21 +363,22 @@ class MagentoAppType extends AbstractAppType
         }
 
         // Redis - Caching backend
-        $config['use_redis'] = $this->askConfirm(
+        $redisOption = $input->getOption('redis');
+        $config['use_redis'] = $redisOption !== null ? (bool) $redisOption : $this->askConfirm(
             label: 'Use Redis for caching?',
             default: true
         );
 
         // Redis host (if enabled)
         if ($config['use_redis']) {
-            $config['redis_host'] = $this->askText(
+            $config['redis_host'] = $input->getOption('redis-host') ?? $this->askText(
                 label: 'Redis host',
                 placeholder: '127.0.0.1',
                 default: '127.0.0.1',
                 required: true
             );
 
-            $config['redis_port'] = $this->askText(
+            $config['redis_port'] = $input->getOption('redis-port') ?? $this->askText(
                 label: 'Redis port',
                 placeholder: '6379',
                 default: '6379',
