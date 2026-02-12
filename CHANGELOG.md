@@ -5,6 +5,37 @@ All notable changes to PhpHive CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.15] - 2026-02-12
+
+### Added
+
+- **Automatic MySQL Database Setup**: New `InteractsWithDatabase` trait for automatic database creation
+  - Tests MySQL connection before attempting setup
+  - Prompts for MySQL admin credentials
+  - Automatically creates database and user with proper privileges
+  - Graceful fallback to manual configuration on failure
+  - Reusable across all app types (Magento, Laravel, Symfony, etc.)
+  - Beautiful interactive prompts using Laravel Prompts
+  - Secure password masking for all credential inputs
+
+- **Password Masking**: Added `askPassword()` method to AbstractAppType
+  - Magento private key now uses masked password input
+  - Secure credential handling throughout the CLI
+
+### Fixed
+
+- **Magento Authentication**: Changed from creating auth.json file to using COMPOSER_AUTH environment variable
+  - Prevents "directory not empty" error during composer create-project
+  - More reliable authentication method
+  - No pre-install file creation needed
+
+### Changed
+
+- **Magento Database Setup**: Now offers automatic or manual database configuration
+  - Asks user preference before prompting for database details
+  - Automatic setup creates database and user if MySQL is accessible
+  - Manual setup available as fallback or user preference
+
 ## [1.0.14] - 2026-02-12
 
 ### Fixed
