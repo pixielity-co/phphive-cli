@@ -29,3 +29,27 @@ parameters:
 			identifier: function.alreadyNarrowedType
 			count: 1
 			path: src/AppTypes/MagentoAppType.php
+
+		-
+			message: '#^Trait PhpHive\\Cli\\Concerns\\InteractsWithElasticsearch is used zero times and is not analysed\.$#'
+			identifier: trait.unused
+			count: 1
+			path: src/Concerns/InteractsWithElasticsearch.php
+
+		-
+			message: '#^Trait PhpHive\\Cli\\Concerns\\InteractsWithMeilisearch is used zero times and is not analysed\.$#'
+			identifier: trait.unused
+			count: 1
+			path: src/Concerns/InteractsWithMeilisearch.php
+
+		-
+			message: '#^Trait PhpHive\\Cli\\Concerns\\InteractsWithMinio is used zero times and is not analysed\.$#'
+			identifier: trait.unused
+			count: 1
+			path: src/Concerns/InteractsWithMinio.php
+
+		-
+			message: '#^Trait PhpHive\\Cli\\Concerns\\InteractsWithRedis is used zero times and is not analysed\.$#'
+			identifier: trait.unused
+			count: 1
+			path: src/Concerns/InteractsWithRedis.php

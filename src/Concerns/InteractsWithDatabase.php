@@ -455,6 +455,11 @@ trait InteractsWithDatabase
         // Write docker-compose.yml
         $outputPath = $appPath . '/docker-compose.yml';
 
+        // Ensure directory exists
+        if (! is_dir($appPath)) {
+            mkdir($appPath, 0755, true);
+        }
+
         return file_put_contents($outputPath, $content) !== false;
     }
 

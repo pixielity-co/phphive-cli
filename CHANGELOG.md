@@ -5,6 +5,56 @@ All notable changes to PhpHive CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.17] - 2026-02-12
+
+### Added
+
+- **Complete Service Integration System**: Comprehensive traits for all major services
+  - `InteractsWithRedis` - Redis cache and session storage with Docker-first approach
+  - `InteractsWithElasticsearch` - Elasticsearch 7.x/8.x search engine with optional Kibana
+  - `InteractsWithMinio` - S3-compatible object storage with Console UI
+  - `InteractsWithMeilisearch` - Modern search engine with instant results
+  - All traits follow Docker-first approach with graceful local fallbacks
+  - Secure credential generation using cryptographically secure random bytes
+  - Health checking and container readiness verification
+  - Comprehensive docblocks and detailed comments throughout
+  - Reusable across all app types (Magento, Laravel, Symfony, Skeleton)
+
+- **Docker Compose Templates**: Pre-configured templates for all services
+  - `redis.yml` - Redis 7 Alpine with password protection and persistence
+  - `elasticsearch.yml` - Elasticsearch 8.x with Kibana and security enabled
+  - `minio.yml` - MinIO with API (9000) and Console (9001) ports
+  - `meilisearch.yml` - Meilisearch with master key protection
+  - `mailpit.yml` - Email testing with SMTP (1025) and Web UI (8025)
+  - `laravel-full.yml` - Complete Laravel stack (MySQL, Redis, Meilisearch, Mailpit, MinIO)
+  - `symfony-full.yml` - Complete Symfony stack (PostgreSQL, Redis, Elasticsearch, Kibana, Mailpit)
+  - All templates use standard ports and named volumes for data persistence
+  - Valid YAML syntax with comprehensive comments
+
+- **Service-Specific Features**:
+  - **Redis**: Standalone, Sentinel, and Cluster support with password authentication
+  - **Elasticsearch**: Version selection (7.x/8.x), optional Kibana, security configuration
+  - **MinIO**: Automatic bucket creation, access/secret key generation, Console UI
+  - **Meilisearch**: Master key generation, health checking, OS-specific installation guidance
+  - All services include health checks and wait-for-ready logic
+
+### Changed
+
+- **Enhanced Docker Integration**: All service traits integrate seamlessly with `InteractsWithDocker`
+  - Automatic Docker detection and availability checking
+  - Installation guidance for Docker when not available
+  - Container lifecycle management (start, stop, health checks)
+  - Graceful fallbacks to local installations
+
+### Technical Details
+
+- **Security**: All credentials generated using `random_bytes()` for cryptographic security
+- **Ports**: Standard ports used (Redis: 6379, Elasticsearch: 9200, MinIO: 9000/9001, Meilisearch: 7700)
+- **Persistence**: Named Docker volumes ensure data survives container restarts
+- **Health Checks**: All services include health check endpoints with retry logic
+- **Documentation**: Comprehensive docblocks matching PhpHive CLI standards
+- **Code Quality**: All code passes PHPStan level 8, Laravel Pint, and Rector checks
+
 ## [1.0.16] - 2026-02-12
 
 ### Added
