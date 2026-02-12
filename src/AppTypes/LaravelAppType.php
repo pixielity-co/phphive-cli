@@ -132,12 +132,15 @@ class LaravelAppType extends AbstractAppType
         $config['laravel_version'] = $this->askSelect(
             label: 'Laravel version',
             options: [
-                'Laravel 12 (Latest)' => '12',
-                'Laravel 11 (LTS)' => '11',
-                'Laravel 10' => '10',
+                'v12' => 'Laravel 12 (Latest)',
+                'v11' => 'Laravel 11 (LTS)',
+                'v10' => 'Laravel 10',
             ],
-            default: 'Laravel 12 (Latest)'
+            default: 'v12'
         );
+
+        // Extract version number (remove 'v' prefix)
+        $config['laravel_version'] = ltrim($config['laravel_version'], 'v');
 
         // =====================================================================
         // STARTER KIT
