@@ -1,0 +1,62 @@
+#!/bin/sh
+
+# Pre-commit hook for PhpHive CLI
+# 1. Validates CHANGELOG version
+# 2. Formats PHP files with Laravel Pint
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# ============================================================================
+# 1. Validate CHANGELOG Version
+# ============================================================================
+if git diff --cached --name-only | grep -q "CHANGELOG.md"; then
+    echo "${YELLOW}Validating CHANGELOG version...${NC}"
+
+    # Extract version from CHANGELOG.md
+    CHANGELOG_VERSION=$(grep -m 1 -oP '(?<=## \[)[0-9]+\.[0-9]+\.[0-9]+(?=\])' CHANGELOG.md)
+
+    if [ -z "$CHANGELOG_VERSION" ]; then
+        echo "${RED}❌ Error: Could not extract version from CHANGELOG.md${NC}"
+        echo "Make sure CHANGELOG.md has a version in format: ## [X.Y.Z]"
+        exit 1
+    fi
+
+    # Extract current version from Application.php
+    CURRENT_VERSION=$(grep -oP "private const string APP_VERSION = '\K[0-9]+\.[0-9]+\.[0-9]+" src/Application.php)
+
+    if [ -z "$CURRENT_VERSION" ]; then
+        echo "${RED}❌ Error: Could not extract version from Application.php${NC}"
+        exit 1
+    fi
+
+    echo "CHANGELOG version: $CHANGELOG_VERSION"
+    echo "Current version: $CURRENT_VERSION"
+
+    # Check if versions are the same
+    if [ "$CHANGELOG_VERSION" = "$CURRENT_VERSION" ]; then
+        echo "${RED}❌ Error: CHANGELOG version ($CHANGELOG_VERSION) is the same as current version ($CURRENT_VERSION)${NC}"
+        echo "Please update CHANGELOG.md with a new version number"
+        exit 1
+    fi
+
+    # Check if CHANGELOG version is older
+    if [[ "$CHANGELOG_VERSION" < "$CURRENT_VERSION" ]]; then
+        echo "${RED}❌ Error: CHANGELOG version ($CHANGELOG_VERSION) is older than current version ($CURRENT_VERSION)${NC}"
+        echo "Please use a newer version number"
+        exit 1
+    fi
+
+    echo "${GREEN}✅ Version validation passed: $CHANGELOG_VERSION > $CURRENT_VERSION${NC}"
+fi
+
+# ============================================================================
+# 2. Format PHP Files with Laravel Pint
+# ============================================================================
+echo "${YELLOW}Formatting PHP files...${NC}"
+npx lint-staged
+
+exit 0

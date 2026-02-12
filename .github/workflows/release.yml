@@ -17,6 +17,12 @@
 # Triggers:
 #   - Push to main branch (excluding tag pushes)
 #
+# Notes
+# ----------------------------------------------------------------------------
+# - This workflow only runs when CHANGELOG.md is modified on main branch
+# - It automatically extracts version and release notes from CHANGELOG.md
+# - Tags and releases are only created if they don't already exist
+# - Packagist webhook is automatically triggered by GitHub (configured in repo)
 # ============================================================================
 
 name: Release
@@ -82,6 +88,34 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
           echo "Found version: $VERSION"
+
+      # ----------------------------------------------------------------------
+      # Validate Version is New
+      # ----------------------------------------------------------------------
+      - name: Validate version is new
+        id: validate_version
+        run: |
+          CHANGELOG_VERSION="${{ steps.version.outputs.version }}"
+          CURRENT_VERSION=$(grep -oP "private const string APP_VERSION = '\K[0-9]+\.[0-9]+\.[0-9]+" src/Application.php)
+
+          echo "CHANGELOG version: $CHANGELOG_VERSION"
+          echo "Current version: $CURRENT_VERSION"
+
+          if [ "$CHANGELOG_VERSION" = "$CURRENT_VERSION" ]; then
+            echo "❌ Error: CHANGELOG version ($CHANGELOG_VERSION) is the same as current version ($CURRENT_VERSION)"
+            echo "Please update CHANGELOG.md with a new version number"
+            exit 1
+          fi
+
+          # Compare versions (simple string comparison works for semantic versioning)
+          if [[ "$CHANGELOG_VERSION" < "$CURRENT_VERSION" ]]; then
+            echo "❌ Error: CHANGELOG version ($CHANGELOG_VERSION) is older than current version ($CURRENT_VERSION)"
+            echo "Please use a newer version number"
+            exit 1
+          fi
+
+          echo "✅ Version validation passed: $CHANGELOG_VERSION > $CURRENT_VERSION"
+          echo "is_new=true" >> $GITHUB_OUTPUT
 
       # ----------------------------------------------------------------------
       # Check if Tag Already Exists
@@ -215,12 +249,3 @@ jobs:
           echo "## ℹ️ Tag Already Exists" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Tag v${{ steps.version.outputs.version }} already exists. Skipping release creation." >> $GITHUB_STEP_SUMMARY
-
-# ----------------------------------------------------------------------------
-# Notes
-# ----------------------------------------------------------------------------
-# - This workflow only runs when CHANGELOG.md is modified on main branch
-# - It automatically extracts version and release notes from CHANGELOG.md
-# - Tags and releases are only created if they don't already exist
-# - Packagist webhook is automatically triggered by GitHub (configured in repo)
-# ----------------------------------------------------------------------------
