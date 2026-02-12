@@ -16,8 +16,8 @@ NC='\033[0m' # No Color
 if git diff --cached --name-only | grep -q "CHANGELOG.md"; then
     echo "${YELLOW}Validating CHANGELOG version...${NC}"
 
-    # Extract version from CHANGELOG.md
-    CHANGELOG_VERSION=$(grep -m 1 -oP '(?<=## \[)[0-9]+\.[0-9]+\.[0-9]+(?=\])' CHANGELOG.md)
+    # Extract version from CHANGELOG.md (macOS compatible)
+    CHANGELOG_VERSION=$(grep -m 1 -E '## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | sed -E 's/.*\[([0-9]+\.[0-9]+\.[0-9]+)\].*/\1/')
 
     if [ -z "$CHANGELOG_VERSION" ]; then
         echo "${RED}❌ Error: Could not extract version from CHANGELOG.md${NC}"
@@ -25,8 +25,8 @@ if git diff --cached --name-only | grep -q "CHANGELOG.md"; then
         exit 1
     fi
 
-    # Extract current version from Application.php
-    CURRENT_VERSION=$(grep -oP "private const string APP_VERSION = '\K[0-9]+\.[0-9]+\.[0-9]+" src/Application.php)
+    # Extract current version from Application.php (macOS compatible)
+    CURRENT_VERSION=$(grep -E "private const string APP_VERSION = '[0-9]+\.[0-9]+\.[0-9]+'" src/Application.php | sed -E "s/.*'([0-9]+\.[0-9]+\.[0-9]+)'.*/\1/")
 
     if [ -z "$CURRENT_VERSION" ]; then
         echo "${RED}❌ Error: Could not extract version from Application.php${NC}"
@@ -43,9 +43,13 @@ if git diff --cached --name-only | grep -q "CHANGELOG.md"; then
         exit 1
     fi
 
-    # Check if CHANGELOG version is older
-    if [[ "$CHANGELOG_VERSION" < "$CURRENT_VERSION" ]]; then
-        echo "${RED}❌ Error: CHANGELOG version ($CHANGELOG_VERSION) is older than current version ($CURRENT_VERSION)${NC}"
+    # Simple version comparison (works on macOS)
+    # Convert versions to comparable numbers (e.g., 1.0.7 -> 1000007)
+    changelog_num=$(echo "$CHANGELOG_VERSION" | awk -F. '{printf "%d%03d%03d", $1, $2, $3}')
+    current_num=$(echo "$CURRENT_VERSION" | awk -F. '{printf "%d%03d%03d", $1, $2, $3}')
+
+    if [ "$changelog_num" -le "$current_num" ]; then
+        echo "${RED}❌ Error: CHANGELOG version ($CHANGELOG_VERSION) must be greater than current version ($CURRENT_VERSION)${NC}"
         echo "Please use a newer version number"
         exit 1
     fi

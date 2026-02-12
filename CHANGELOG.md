@@ -5,6 +5,25 @@ All notable changes to PhpHive CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.7] - 2026-02-12
+
+### Fixed
+
+- **Composer Execution**: Replaced shell command execution with direct Process array execution
+  - Uses `findComposerBinary()` method to reliably locate Composer
+  - Supports `COMPOSER_BINARY` environment variable for custom paths
+  - Checks for `composer.phar` in current directory and monorepo root
+  - Falls back to global composer via `which`/`where` command
+  - Fixes issues with wrapper scripts and PATH resolution
+  - More reliable across different environments (CI, Docker, local)
+  - Better error handling and debugging capabilities
+  - Resolves monorepo path detection issues with globally installed CLI
+
+### Changed
+
+- Composer commands now use direct binary execution instead of shell interpolation
+- Improved cross-platform compatibility (Windows, macOS, Linux)
+
 ## [1.0.6] - 2026-02-12
 
 ### Added
