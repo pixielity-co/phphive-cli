@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PhpHive\Cli\PackageTypes;
 
 use Exception;
+use Override;
 
 /**
  * Magento Package Type.
@@ -183,7 +184,7 @@ final class MagentoPackageType extends AbstractPackageType
      */
     public function getType(): string
     {
-        return 'magento';
+        return self::TYPE_MAGENTO;
     }
 
     /**
@@ -229,12 +230,13 @@ final class MagentoPackageType extends AbstractPackageType
      * @param  string                $description Package description
      * @return array<string, string> Variables for template replacement
      */
+    #[Override]
     public function prepareVariables(string $name, string $description): array
     {
         $variables = parent::prepareVariables($name, $description);
 
         // Add Magento-specific variables
-        $packageNamespace = $variables['{{PACKAGE_NAMESPACE}}'];
+        $packageNamespace = $variables[self::VAR_PACKAGE_NAMESPACE];
 
         // For Magento, create module name format (Vendor_Module)
         // Example: 'test-magento' -> 'Monorepo_TestMagento'
@@ -266,6 +268,7 @@ final class MagentoPackageType extends AbstractPackageType
      *
      * @throws Exception If composer operations fail
      */
+    #[Override]
     public function postCreate(string $packagePath): void
     {
         // Configure Magento repository before installing dependencies

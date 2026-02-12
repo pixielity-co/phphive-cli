@@ -154,7 +154,7 @@ final class SkeletonPackageType extends AbstractPackageType
      */
     public function getType(): string
     {
-        return 'skeleton';
+        return self::TYPE_SKELETON;
     }
 
     /**

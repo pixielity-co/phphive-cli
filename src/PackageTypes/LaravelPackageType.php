@@ -102,7 +102,7 @@ final class LaravelPackageType extends AbstractPackageType
      */
     public function getType(): string
     {
-        return 'laravel';
+        return self::TYPE_LARAVEL;
     }
 
     /**
@@ -161,7 +161,7 @@ final class LaravelPackageType extends AbstractPackageType
     public function getFileNamingRules(): array
     {
         return [
-            '/src/Providers/ServiceProvider.php' => '/src/Providers/{{PACKAGE_NAMESPACE}}ServiceProvider.php',
+            '/src/Providers/ServiceProvider.php' => '/src/Providers/' . self::VAR_PACKAGE_NAMESPACE . 'ServiceProvider.php',
         ];
     }
 }

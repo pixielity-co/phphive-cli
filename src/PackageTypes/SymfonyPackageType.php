@@ -138,7 +138,7 @@ final class SymfonyPackageType extends AbstractPackageType
      */
     public function getType(): string
     {
-        return 'symfony';
+        return self::TYPE_SYMFONY;
     }
 
     /**
@@ -204,8 +204,8 @@ final class SymfonyPackageType extends AbstractPackageType
     public function getFileNamingRules(): array
     {
         return [
-            '/src/Bundle.php' => '/src/{{PACKAGE_NAMESPACE}}Bundle.php',
-            '/src/DependencyInjection/Extension.php' => '/src/DependencyInjection/{{PACKAGE_NAMESPACE}}Extension.php',
+            '/src/Bundle.php' => '/src/' . self::VAR_PACKAGE_NAMESPACE . 'Bundle.php',
+            '/src/DependencyInjection/Extension.php' => '/src/DependencyInjection/' . self::VAR_PACKAGE_NAMESPACE . 'Extension.php',
         ];
     }
 }

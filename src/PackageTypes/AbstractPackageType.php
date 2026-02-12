@@ -167,13 +167,13 @@ abstract class AbstractPackageType implements PackageTypeInterface
         $composerPackageName = $this->generateComposerPackageName($name);
 
         return [
-            '{{PACKAGE_NAME}}' => $name,
-            '{{PACKAGE_NAMESPACE}}' => $packageNamespace,
-            '{{COMPOSER_PACKAGE_NAME}}' => $composerPackageName,
-            '{{DESCRIPTION}}' => $description,
-            '{{AUTHOR_NAME}}' => 'PhpHive Team',
-            '{{AUTHOR_EMAIL}}' => 'team@phphive.com',
-            '{{NAMESPACE}}' => "PhpHive\\{$packageNamespace}",
+            self::VAR_PACKAGE_NAME => $name,
+            self::VAR_PACKAGE_NAMESPACE => $packageNamespace,
+            self::VAR_COMPOSER_PACKAGE_NAME => $composerPackageName,
+            self::VAR_DESCRIPTION => $description,
+            self::VAR_AUTHOR_NAME => 'PhpHive Team',
+            self::VAR_AUTHOR_EMAIL => 'team@phphive.com',
+            self::VAR_NAMESPACE => "PhpHive\\{$packageNamespace}",
         ];
     }
 
