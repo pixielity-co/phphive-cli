@@ -404,10 +404,16 @@ final class CreateAppCommand extends BaseCommand
         // Step 4: CONFIGURATION COLLECTION
         $this->line('');
         $this->comment('Configuration:');
+
         $config = $appType->collectConfiguration($input, $output);
 
-        // Override name with validated name
+        // Set name and description from command arguments/options
         $config['name'] = $name;
+
+        // Set description if not already set by collectConfiguration (from --description option)
+        if (! isset($config['description']) || $config['description'] === '') {
+            $config['description'] = "A {$appType->getName()} application";
+        }
 
         // Step 5: Execute application creation with progress feedback
         $root = $this->getMonorepoRoot();

@@ -109,6 +109,54 @@ abstract class AbstractAppType implements AppTypeInterface
     }
 
     /**
+     * Collect configuration from user input.
+     *
+     * This base implementation handles common configuration that all app types need:
+     * - Name (skipped if already provided via command argument)
+     * - Description (skipped if already provided via --description option)
+     *
+     * Child classes should override this method and call parent::collectConfiguration()
+     * first, then add their specific configuration options.
+     *
+     * Example in child class:
+     * ```php
+     * public function collectConfiguration(InputInterface $input, OutputInterface $output): array
+     * {
+     *     $config = parent::collectConfiguration($input, $output);
+     *
+     *     // Add framework-specific configuration
+     *     $config['php_version'] = $this->select(...);
+     *
+     *     return $config;
+     * }
+     * ```
+     *
+     * @param  InputInterface       $input  Command input
+     * @param  OutputInterface      $output Command output
+     * @return array<string, mixed> Configuration array
+     */
+    public function collectConfiguration(InputInterface $input, OutputInterface $output): array
+    {
+        // Store input/output for use in helper methods
+        $this->input = $input;
+        $this->output = $output;
+
+        $config = [];
+
+        // Name is handled by CreateAppCommand, so we don't prompt for it here
+        // It will be set after collectConfiguration() returns
+
+        // Description - only prompt if not provided via --description option
+        $descriptionOption = $input->getOption('description');
+        if ($descriptionOption !== null && $descriptionOption !== '') {
+            $config['description'] = $descriptionOption;
+        }
+        // If description not provided, it will be set by CreateAppCommand with a default
+
+        return $config;
+    }
+
+    /**
      * Get or create the Filesystem instance.
      *
      * Returns a lazy-loaded Filesystem instance for performing file operations.

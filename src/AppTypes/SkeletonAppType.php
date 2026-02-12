@@ -105,32 +105,8 @@ class SkeletonAppType extends AbstractAppType
      */
     public function collectConfiguration(InputInterface $input, OutputInterface $output): array
     {
-        // Store input/output for use in helper methods
-        $this->input = $input;
-        $this->output = $output;
-
-        // Initialize configuration array
-        $config = [];
-
-        // =====================================================================
-        // BASIC INFORMATION
-        // =====================================================================
-
-        // Application name - used for directory name, package name, and namespace
-        $config['name'] = $this->text(
-            label: 'Application name',
-            placeholder: 'my-app',
-            default: 'my-app',
-            required: true
-        );
-
-        // Application description - used in composer.json and documentation
-        $config['description'] = $this->text(
-            label: 'Application description',
-            placeholder: 'A PHP application',
-            default: 'A PHP application',
-            required: false
-        );
+        // Get common configuration (description if provided via option)
+        $config = parent::collectConfiguration($input, $output);
 
         // =====================================================================
         // PHP VERSION
