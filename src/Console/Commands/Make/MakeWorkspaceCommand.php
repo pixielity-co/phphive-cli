@@ -226,18 +226,42 @@ final class MakeWorkspaceCommand extends BaseMakeCommand
     }
 
     /**
-     * Setup cleanup handlers for signal interruption.
+     * Setup cleanup handlers for signal interruption (Ctrl+C, SIGTERM).
+     *
+     * This method registers signal handlers using the Emitter pattern to ensure
+     * proper cleanup when the user cancels the operation or the process is terminated.
+     * It subscribes to two events:
+     * - signal.interrupt: Triggered when user presses Ctrl+C (SIGINT)
+     * - signal.terminate: Triggered when process receives SIGTERM
+     *
+     * Both handlers perform the same cleanup logic:
+     * 1. Display cancellation/termination message (unless in quiet/json mode)
+     * 2. Check if workspace directory was created
+     * 3. Call cleanupFailedWorkspace() to remove the workspace directory
+     *
+     * The handlers use closure variable references (&$workspacePath, &$workspaceCreated)
+     * to access the current state of the creation process, allowing them to determine
+     * if cleanup is necessary.
+     *
+     * @param string|null &$workspacePath    Reference to workspace path (updated during creation)
+     * @param bool        &$workspaceCreated Reference to creation flag (set to true when workspace dir is created)
+     * @param bool        $isQuiet           Suppress output messages
+     * @param bool        $isJson            Output in JSON format
      */
     private function setupCleanupHandlers(?string &$workspacePath, bool &$workspaceCreated, bool $isQuiet, bool $isJson): void
     {
+        // Register global signal handlers (SIGINT, SIGTERM)
         $this->registerSignalHandlers();
 
+        // Subscribe to SIGINT event (Ctrl+C)
         $this->bindEvent('signal.interrupt', function () use (&$workspacePath, &$workspaceCreated, $isQuiet, $isJson): void {
+            // Display cancellation message
             if (! $isQuiet && ! $isJson) {
                 $this->line('');
                 $this->warning('Operation cancelled by user.');
             }
 
+            // Cleanup if workspace directory was created
             if ($workspaceCreated && $workspacePath !== null) {
                 if (! $isQuiet && ! $isJson) {
                     $this->warning('Cleaning up...');
@@ -246,12 +270,15 @@ final class MakeWorkspaceCommand extends BaseMakeCommand
             }
         });
 
+        // Subscribe to SIGTERM event (process termination)
         $this->bindEvent('signal.terminate', function () use (&$workspacePath, &$workspaceCreated, $isQuiet, $isJson): void {
+            // Display termination message
             if (! $isQuiet && ! $isJson) {
                 $this->line('');
                 $this->warning('Operation terminated.');
             }
 
+            // Cleanup if workspace directory was created
             if ($workspaceCreated && $workspacePath !== null) {
                 if (! $isQuiet && ! $isJson) {
                     $this->warning('Cleaning up...');
@@ -262,10 +289,21 @@ final class MakeWorkspaceCommand extends BaseMakeCommand
     }
 
     /**
-     * Display intro banner.
+     * Display intro banner and environment check message.
+     *
+     * Shows a welcoming banner with the command title and indicates that
+     * environment checks are being performed. This provides visual feedback
+     * to the user that the command has started and is validating the system.
+     *
+     * Output is suppressed in quiet mode (for CI/CD) and JSON mode (for
+     * programmatic usage).
+     *
+     * @param bool $isQuiet Suppress all output
+     * @param bool $isJson  Output in JSON format
      */
     private function displayIntro(bool $isQuiet, bool $isJson): void
     {
+        // Skip intro in quiet/json mode
         if (! $isQuiet && ! $isJson) {
             $this->intro('Create New Workspace');
             $this->info('Running environment checks...');
@@ -274,17 +312,34 @@ final class MakeWorkspaceCommand extends BaseMakeCommand
 
     /**
      * Check environment with preflight checks.
+     *
+     * Validates that the development environment meets all requirements for
+     * creating a workspace. This includes checking for:
+     * - Required tools (PHP, Composer, Git, Node.js, pnpm)
+     * - Correct versions of dependencies
+     * - Proper system configuration
+     * - Available disk space
+     *
+     * If any checks fail, error messages are displayed and the method returns
+     * false to halt the creation process.
+     *
+     * @param  bool $isQuiet Suppress output messages
+     * @param  bool $isJson  Output in JSON format
+     * @return bool True if all checks passed, false otherwise
      */
     private function checkEnvironment(bool $isQuiet, bool $isJson): bool
     {
+        // Run all preflight checks
         $preflightResult = $this->runPreflightChecks($isQuiet, $isJson);
 
+        // Display errors if any checks failed
         if ($preflightResult->failed()) {
             $this->displayPreflightErrors($preflightResult, $isQuiet, $isJson);
 
             return false;
         }
 
+        // Add spacing after checks (visual separation)
         if (! $isQuiet && ! $isJson) {
             $this->line('');
         }
@@ -295,7 +350,33 @@ final class MakeWorkspaceCommand extends BaseMakeCommand
     /**
      * Execute creation steps with progress feedback.
      *
-     * @return float Total duration in seconds
+     * Orchestrates the workspace creation workflow by executing a series
+     * of steps in sequence. Each step is a closure that performs a specific task
+     * and returns a value indicating success/failure.
+     *
+     * Creation steps:
+     * 1. Cloning workspace template
+     *    - Clones the official PhpHive template repository from GitHub
+     *    - URL: https://github.com/pixielity-inc/hive-template.git
+     *    - Includes sample app, sample package, and complete monorepo structure
+     *    - Removes .git directory to allow fresh git initialization
+     *
+     * 2. Configuring workspace
+     *    - Updates package.json with workspace name
+     *    - Updates composer.json with workspace name (phphive/{name})
+     *    - Initializes new git repository
+     *    - Creates initial commit
+     *
+     * Progress feedback:
+     * - In normal mode: Shows spinner with step message
+     * - In quiet/json mode: Executes silently
+     * - In verbose mode: Shows step duration
+     *
+     * @param  string $name      Workspace name
+     * @param  bool   $isQuiet   Suppress output messages
+     * @param  bool   $isJson    Output in JSON format
+     * @param  bool   $isVerbose Show detailed output
+     * @return float  Total duration in seconds
      */
     private function executeCreationSteps(
         string $name,
@@ -303,18 +384,22 @@ final class MakeWorkspaceCommand extends BaseMakeCommand
         bool $isJson,
         bool $isVerbose
     ): float {
+        // Define creation steps as closures
         $steps = [
             'Cloning workspace template' => fn (): int => $this->cloneTemplate($name, $isVerbose),
             'Configuring workspace' => fn (): bool => $this->updateWorkspaceConfig($name),
         ];
 
+        // Display workspace name being created
         if (! $isQuiet && ! $isJson) {
             $this->info("Creating workspace: {$name}");
             $this->line('');
         }
 
+        // Track total duration
         $startTime = microtime(true);
 
+        // Execute each step in sequence
         foreach ($steps as $message => $step) {
             $this->executeStep($step, $message, $name, $isQuiet, $isJson, $isVerbose);
         }
@@ -324,6 +409,39 @@ final class MakeWorkspaceCommand extends BaseMakeCommand
 
     /**
      * Execute a single creation step.
+     *
+     * Runs a single step in the creation workflow and provides progress feedback.
+     * The step is executed as a closure that returns a value indicating success.
+     *
+     * Execution flow:
+     * 1. Record start time for duration tracking
+     * 2. Execute step (with or without spinner based on mode)
+     * 3. Check result - throw exception if step failed
+     * 4. Calculate step duration
+     * 5. Display completion message with optional duration
+     *
+     * Success criteria:
+     * - Step returns 0 (success exit code) or true (boolean success)
+     * - Any other value is considered a failure
+     *
+     * Progress feedback modes:
+     * - Normal mode: Shows spinner during execution, completion message after
+     * - Quiet/JSON mode: Executes silently, no output
+     * - Verbose mode: Shows completion message with duration
+     *
+     * Error handling:
+     * - If step fails, throws Exception with step message
+     * - Exception is caught by execute() method's try-catch block
+     * - Triggers cleanup and displays error message
+     *
+     * @param callable $step      Step closure to execute
+     * @param string   $message   Step description for display
+     * @param string   $name      Workspace name (for error messages)
+     * @param bool     $isQuiet   Suppress output messages
+     * @param bool     $isJson    Output in JSON format
+     * @param bool     $isVerbose Show detailed output
+     *
+     * @throws Exception If step fails (returns non-zero/non-true value)
      */
     private function executeStep(
         callable $step,
@@ -333,15 +451,21 @@ final class MakeWorkspaceCommand extends BaseMakeCommand
         bool $isJson,
         bool $isVerbose
     ): void {
+        // Track step duration
         $stepStartTime = microtime(true);
 
+        // Execute step (with or without spinner)
         if ($isQuiet || $isJson) {
+            // Silent execution for CI/CD and programmatic usage
             $result = $step();
         } else {
+            // Show spinner during execution
             $result = $this->spin($step, "{$message}...");
         }
 
+        // Check if step failed (not 0 and not true)
         if ($result !== 0 && $result !== true) {
+            // Output error in JSON format if requested
             if ($isJson) {
                 $this->outputJson([
                     'success' => false,
@@ -352,20 +476,55 @@ final class MakeWorkspaceCommand extends BaseMakeCommand
                 $this->error("Failed: {$message}");
             }
 
+            // Throw exception to trigger cleanup
             throw new Exception("Failed: {$message}");
         }
 
+        // Calculate step duration
         $stepDuration = microtime(true) - $stepStartTime;
 
+        // Display completion message
         if (! $isQuiet && ! $isJson) {
             $this->comment("✓ {$message} complete");
         } elseif ($isVerbose && ! $isJson) {
+            // Show duration in verbose mode
             $this->comment(sprintf('✓ %s complete (%.2fs)', $message, $stepDuration));
         }
     }
 
     /**
      * Handle command failure.
+     *
+     * Handles exceptions that occur during workspace creation by performing
+     * cleanup and displaying appropriate error messages.
+     *
+     * Cleanup process:
+     * 1. Check if workspace directory was created
+     * 2. Display cleanup message (unless in quiet/json mode)
+     * 3. Call cleanupFailedWorkspace() to delete the workspace directory
+     *
+     * Error message display:
+     * - JSON mode: Outputs structured error with success=false
+     * - Normal mode: Displays error message with exception details
+     *
+     * This method is called from the execute() method's catch block when any
+     * exception occurs during the creation process, including:
+     * - Step failures (from executeStep throwing Exception)
+     * - User cancellation (Ctrl+C via signal handlers)
+     * - Unexpected errors (git clone failure, file system errors, etc.)
+     *
+     * Common failure scenarios:
+     * - Git clone fails (network issues, invalid repository)
+     * - Directory already exists
+     * - Insufficient permissions
+     * - Disk space issues
+     *
+     * @param  Exception   $exception        The exception that caused the failure
+     * @param  string|null $workspacePath    Path to workspace directory (null if not created yet)
+     * @param  bool        $workspaceCreated Whether workspace directory was created
+     * @param  bool        $isQuiet          Suppress output messages
+     * @param  bool        $isJson           Output in JSON format
+     * @return int         Command::FAILURE exit code
      */
     private function handleFailure(
         Exception $exception,
@@ -376,21 +535,25 @@ final class MakeWorkspaceCommand extends BaseMakeCommand
     ): int {
         // Cleanup on failure or cancellation
         if ($workspaceCreated && $workspacePath !== null) {
+            // Display cleanup message
             if (! $isQuiet && ! $isJson) {
                 $this->line('');
                 $this->warning('Cleaning up failed workspace...');
             }
 
+            // Remove workspace directory
             $this->cleanupFailedWorkspace($workspacePath, $isQuiet, $isJson);
         }
 
         // Display error message
         if ($isJson) {
+            // Structured error output for programmatic usage
             $this->outputJson([
                 'success' => false,
                 'error' => $exception->getMessage(),
             ]);
         } else {
+            // Human-readable error message
             $this->error('Workspace creation failed: ' . $exception->getMessage());
         }
 
