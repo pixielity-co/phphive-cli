@@ -192,6 +192,9 @@ class MagentoAppType extends AbstractAppType
             );
         }
 
+        // Get app name from config
+        $appName = $config[AppTypeInterface::CONFIG_NAME] ?? 'my-app';
+
         // Determine package name based on edition
         $packageName = $edition === 'enterprise'
             ? 'magento/project-enterprise-edition'
@@ -204,7 +207,9 @@ class MagentoAppType extends AbstractAppType
         // Extensions will be validated during setup:install
         $flags = '--ignore-platform-reqs';
 
-        return "COMPOSER_AUTH='{$authJson}' composer create-project --repository-url=https://repo.magento.com/ {$packageName}:{$magentoVersion->value} . {$flags}";
+        // Use composer create-project to install Magento
+        // This will create the app directory, so it must be run from parent directory
+        return "COMPOSER_AUTH='{$authJson}' composer create-project --repository-url=https://repo.magento.com/ {$packageName}:{$magentoVersion->value} {$appName} {$flags}";
     }
 
     /**

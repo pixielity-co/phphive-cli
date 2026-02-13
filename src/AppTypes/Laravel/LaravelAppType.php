@@ -154,7 +154,12 @@ class LaravelAppType extends AbstractAppType
         $versionValue = $config[AppTypeInterface::CONFIG_LARAVEL_VERSION] ?? LaravelVersion::default()->value;
         $laravelVersion = LaravelVersion::from($versionValue);
 
-        return $laravelVersion->getCreateProjectCommand('.') . ' --prefer-dist';
+        // Get app name from config
+        $appName = $config[AppTypeInterface::CONFIG_NAME] ?? 'my-app';
+
+        // Use composer create-project to install Laravel
+        // This will create the app directory, so it must be run from parent directory
+        return $laravelVersion->getCreateProjectCommand($appName) . ' --prefer-dist';
     }
 
     /**
