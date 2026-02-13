@@ -126,9 +126,85 @@ abstract class BaseCommand extends Command
      *
      * @return Container The DI container instance
      */
-    protected function container(): Container
+    public function container(): Container
     {
         return $this->container;
+    }
+
+    /**
+     * Initialize the command before execution.
+     *
+     * This method is called by Symfony Console before execute() runs.
+     * It stores references to the input and output interfaces for easy
+     * access throughout the command lifecycle.
+     *
+     * Override this method in child classes to perform custom initialization,
+     * but always call parent::initialize() to ensure proper setup.
+     *
+     * @param InputInterface  $input  The input interface
+     * @param OutputInterface $output The output interface
+     */
+    public function initialize(InputInterface $input, OutputInterface $output): void
+    {
+        // Store input and output for convenient access in command methods
+        $this->input = $input;
+        $this->output = $output;
+
+        // Set output for prompt methods
+        self::setOutput($output);
+
+        // Call parent initialization to maintain Symfony Console behavior
+        parent::initialize($input, $output);
+    }
+
+    /**
+     * Get the value of a command option.
+     *
+     * Options are passed to commands using the --option-name syntax.
+     * This method retrieves the value of a named option, returning
+     * null if the option wasn't provided.
+     *
+     * Example:
+     * ```php
+     * // Command: ./bin/hive install --force
+     * $force = $this->option('force'); // Returns true
+     * ```
+     *
+     * @param  string $name The option name
+     * @return mixed  The option value, or null if not set
+     */
+    public function option(string $name): mixed
+    {
+        return $this->input->getOption($name);
+    }
+
+    /**
+     * Check if an option exists and has a truthy value.
+     *
+     * This is a convenience method that combines checking if an option
+     * is defined and if it has a truthy value. Useful for boolean flags.
+     *
+     * Example:
+     * ```php
+     * // Command: ./bin/hive install --force
+     * if ($this->hasOption('force')) {
+     *     // Force flag is present and true
+     * }
+     * ```
+     *
+     * @param  string $name The option name to check
+     * @return bool   True if the option exists and is truthy, false otherwise
+     */
+    public function hasOption(string $name): bool
+    {
+        // First check if the option is defined in the command
+        if (! $this->input->hasOption($name)) {
+            return false;
+        }
+
+        $optionValue = $this->option($name);
+
+        return in_array($optionValue, [true, '1', 1], true);
     }
 
     /**
@@ -423,32 +499,6 @@ abstract class BaseCommand extends Command
     }
 
     /**
-     * Initialize the command before execution.
-     *
-     * This method is called by Symfony Console before execute() runs.
-     * It stores references to the input and output interfaces for easy
-     * access throughout the command lifecycle.
-     *
-     * Override this method in child classes to perform custom initialization,
-     * but always call parent::initialize() to ensure proper setup.
-     *
-     * @param InputInterface  $input  The input interface
-     * @param OutputInterface $output The output interface
-     */
-    protected function initialize(InputInterface $input, OutputInterface $output): void
-    {
-        // Store input and output for convenient access in command methods
-        $this->input = $input;
-        $this->output = $output;
-
-        // Set output for prompt methods
-        self::setOutput($output);
-
-        // Call parent initialization to maintain Symfony Console behavior
-        parent::initialize($input, $output);
-    }
-
-    /**
      * Check if the command is running in verbose mode.
      *
      * Verbose mode is enabled with the -v option and provides additional
@@ -545,27 +595,6 @@ abstract class BaseCommand extends Command
     }
 
     /**
-     * Get the value of a command option.
-     *
-     * Options are passed to commands using the --option-name syntax.
-     * This method retrieves the value of a named option, returning
-     * null if the option wasn't provided.
-     *
-     * Example:
-     * ```php
-     * // Command: ./bin/hive install --force
-     * $force = $this->option('force'); // Returns true
-     * ```
-     *
-     * @param  string $name The option name
-     * @return mixed  The option value, or null if not set
-     */
-    protected function option(string $name): mixed
-    {
-        return $this->input->getOption($name);
-    }
-
-    /**
      * Get the value of a command argument.
      *
      * Arguments are positional parameters passed to commands without
@@ -584,35 +613,6 @@ abstract class BaseCommand extends Command
     protected function argument(string $name): mixed
     {
         return $this->input->getArgument($name);
-    }
-
-    /**
-     * Check if an option exists and has a truthy value.
-     *
-     * This is a convenience method that combines checking if an option
-     * is defined and if it has a truthy value. Useful for boolean flags.
-     *
-     * Example:
-     * ```php
-     * // Command: ./bin/hive install --force
-     * if ($this->hasOption('force')) {
-     *     // Force flag is present and true
-     * }
-     * ```
-     *
-     * @param  string $name The option name to check
-     * @return bool   True if the option exists and is truthy, false otherwise
-     */
-    protected function hasOption(string $name): bool
-    {
-        // First check if the option is defined in the command
-        if (! $this->input->hasOption($name)) {
-            return false;
-        }
-
-        $optionValue = $this->option($name);
-
-        return in_array($optionValue, [true, '1', 1], true);
     }
 
     /**

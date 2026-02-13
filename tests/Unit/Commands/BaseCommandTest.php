@@ -71,7 +71,7 @@ final class BaseCommandTest extends TestCase
         $this->command->setContainer($container);
 
         // Assert container is accessible
-        $this->assertInstanceOf(Container::class, $this->command->getContainer());
+        $this->assertInstanceOf(Container::class, $this->command->container());
     }
 
     /**

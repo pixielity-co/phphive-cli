@@ -64,7 +64,7 @@ final class TestCommand extends BaseCommand
     /**
      * Expose container property for testing.
      */
-    public function getContainer(): Container
+    public function container(): Container
     {
         return $this->container;
     }

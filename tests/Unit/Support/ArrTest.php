@@ -4,233 +4,427 @@ declare(strict_types=1);
 
 namespace PhpHive\Cli\Tests\Unit\Support;
 
-use function array_values;
-
 use PhpHive\Cli\Support\Arr;
 use PhpHive\Cli\Tests\TestCase;
 
 /**
- * Array Helper Test.
+ * Unit tests for Arr helper class.
  *
- * Tests for the Arr utility class that extends Laravel's array helpers.
- * Verifies array manipulation, transformation, filtering, and utility methods.
+ * Tests array manipulation functionality:
+ * - Array transformations
+ * - Array filtering and mapping
+ * - Array key/value operations
+ * - Array sorting
+ * - Array searching and checking
  */
-final class ArrTest extends TestCase
+class ArrTest extends TestCase
 {
     /**
-     * Test that build() transforms an array using a callback.
-     *
-     * Verifies that the build method applies a callback to each key-value pair
-     * and constructs a new array from the returned key-value pairs.
+     * Test build method creates new array using callback.
      */
-    public function test_build_transforms_array_with_callback(): void
+    public function test_build_creates_new_array_using_callback(): void
     {
-        // Input array with key-value pairs
-        $input = ['a' => 1, 'b' => 2];
+        $array = ['a' => 1, 'b' => 2, 'c' => 3];
 
-        // Transform keys and values using callback
-        $result = Arr::build($input, fn ($key, $value) => [$key . '_new', $value * 2]);
+        $result = Arr::build($array, fn ($key, $value) => [strtoupper($key), $value * 2]);
 
-        // Assert the transformation is correct
-        $this->assertEquals(['a_new' => 2, 'b_new' => 4], $result);
+        $this->assertSame(['A' => 2, 'B' => 4, 'C' => 6], $result);
     }
 
     /**
-     * Test that keys() returns all array keys.
-     *
-     * Verifies that the method extracts all keys from an associative array.
+     * Test keys returns array keys.
      */
     public function test_keys_returns_array_keys(): void
     {
-        $input = ['a' => 1, 'b' => 2, 'c' => 3];
-        $result = Arr::keys($input);
+        $array = ['a' => 1, 'b' => 2, 'c' => 3];
 
-        $this->assertEquals(['a', 'b', 'c'], $result);
+        $keys = Arr::keys($array);
+
+        $this->assertSame(['a', 'b', 'c'], $keys);
     }
 
     /**
-     * Test that values() returns all array values.
-     *
-     * Verifies that the method extracts all values and reindexes the array.
+     * Test keys can filter by value.
+     */
+    public function test_keys_can_filter_by_value(): void
+    {
+        $array = ['a' => 1, 'b' => 2, 'c' => 1];
+
+        $keys = Arr::keys($array, 1);
+
+        $this->assertSame(['a', 'c'], $keys);
+    }
+
+    /**
+     * Test values returns array values.
      */
     public function test_values_returns_array_values(): void
     {
-        $input = ['a' => 1, 'b' => 2, 'c' => 3];
-        $result = Arr::values($input);
+        $array = ['a' => 1, 'b' => 2, 'c' => 3];
 
-        $this->assertEquals([1, 2, 3], $result);
+        $values = Arr::values($array);
+
+        $this->assertSame([1, 2, 3], $values);
     }
 
     /**
-     * Test that flip() swaps keys and values.
-     *
-     * Verifies that array keys become values and values become keys.
+     * Test flip swaps keys and values.
      */
     public function test_flip_swaps_keys_and_values(): void
     {
-        $input = ['a' => 'x', 'b' => 'y'];
-        $result = Arr::flip($input);
+        $array = ['a' => 'x', 'b' => 'y', 'c' => 'z'];
 
-        $this->assertEquals(['x' => 'a', 'y' => 'b'], $result);
+        $flipped = Arr::flip($array);
+
+        $this->assertSame(['x' => 'a', 'y' => 'b', 'z' => 'c'], $flipped);
     }
 
     /**
-     * Test that combine() creates an array from separate keys and values.
-     *
-     * Verifies that two arrays are combined into a single associative array.
+     * Test flip filters non-string/int values.
+     */
+    public function test_flip_filters_non_string_int_values(): void
+    {
+        $array = ['a' => 'x', 'b' => ['nested'], 'c' => 'z'];
+
+        $flipped = Arr::flip($array);
+
+        $this->assertSame(['x' => 'a', 'z' => 'c'], $flipped);
+    }
+
+    /**
+     * Test combine creates array from keys and values.
      */
     public function test_combine_creates_array_from_keys_and_values(): void
     {
         $keys = ['a', 'b', 'c'];
         $values = [1, 2, 3];
-        $result = Arr::combine($keys, $values);
 
-        $this->assertEquals(['a' => 1, 'b' => 2, 'c' => 3], $result);
+        $combined = Arr::combine($keys, $values);
+
+        $this->assertSame(['a' => 1, 'b' => 2, 'c' => 3], $combined);
     }
 
     /**
-     * Test that keyExists() checks for key existence.
-     *
-     * Verifies that the method correctly identifies existing and non-existing keys.
+     * Test keyExists checks if key exists.
      */
-    public function test_key_exists_checks_for_key(): void
+    public function test_key_exists_checks_if_key_exists(): void
     {
-        $input = ['a' => 1, 'b' => 2];
+        $array = ['a' => 1, 'b' => null];
 
-        $this->assertTrue(Arr::keyExists('a', $input));
-        $this->assertFalse(Arr::keyExists('c', $input));
+        $this->assertTrue(Arr::keyExists('a', $array));
+        $this->assertTrue(Arr::keyExists('b', $array));
+        $this->assertFalse(Arr::keyExists('c', $array));
     }
 
     /**
-     * Test that unique() removes duplicate values.
-     *
-     * Verifies that duplicate values are removed from the array.
+     * Test reduce accumulates array to single value.
      */
-    public function test_unique_removes_duplicates(): void
+    public function test_reduce_accumulates_array_to_single_value(): void
     {
-        $input = [1, 2, 2, 3, 3, 3];
-        $result = Arr::unique($input);
+        $array = [1, 2, 3, 4, 5];
 
-        $this->assertEquals([1, 2, 3], array_values($result));
+        $sum = Arr::reduce($array, fn ($carry, $item) => $carry + $item, 0);
+
+        $this->assertSame(15, $sum);
     }
 
     /**
-     * Test that diff() returns the difference between arrays.
-     *
-     * Verifies that values present in the first array but not in others are returned.
+     * Test fillKeys fills array with value.
      */
-    public function test_diff_returns_difference(): void
+    public function test_fill_keys_fills_array_with_value(): void
+    {
+        $keys = ['a', 'b', 'c'];
+
+        $filled = Arr::fillKeys($keys, 'value');
+
+        $this->assertSame(['a' => 'value', 'b' => 'value', 'c' => 'value'], $filled);
+    }
+
+    /**
+     * Test slice extracts portion of array.
+     */
+    public function test_slice_extracts_portion_of_array(): void
+    {
+        $array = ['a', 'b', 'c', 'd', 'e'];
+
+        $sliced = Arr::slice($array, 1, 3);
+
+        $this->assertSame(['b', 'c', 'd'], $sliced);
+    }
+
+    /**
+     * Test slice preserves keys when specified.
+     */
+    public function test_slice_preserves_keys_when_specified(): void
+    {
+        $array = ['a' => 1, 'b' => 2, 'c' => 3, 'd' => 4];
+
+        $sliced = Arr::slice($array, 1, 2, true);
+
+        $this->assertSame(['b' => 2, 'c' => 3], $sliced);
+    }
+
+    /**
+     * Test filter removes elements based on callback.
+     */
+    public function test_filter_removes_elements_based_on_callback(): void
+    {
+        $array = [1, 2, 3, 4, 5];
+
+        $filtered = Arr::filter($array, fn ($value) => $value > 2);
+
+        $this->assertSame([2 => 3, 3 => 4, 4 => 5], $filtered);
+    }
+
+    /**
+     * Test reverse reverses array order.
+     */
+    public function test_reverse_reverses_array_order(): void
+    {
+        $array = ['a', 'b', 'c'];
+
+        $reversed = Arr::reverse($array);
+
+        $this->assertSame(['c', 'b', 'a'], $reversed);
+    }
+
+    /**
+     * Test pad pads array to specified length.
+     */
+    public function test_pad_pads_array_to_specified_length(): void
+    {
+        $array = ['a', 'b'];
+
+        $padded = Arr::pad($array, 5, 'x');
+
+        $this->assertSame(['a', 'b', 'x', 'x', 'x'], $padded);
+    }
+
+    /**
+     * Test replace replaces array elements.
+     */
+    public function test_replace_replaces_array_elements(): void
+    {
+        $array = ['a' => 1, 'b' => 2];
+        $replacement = ['b' => 3, 'c' => 4];
+
+        $replaced = Arr::replace($array, $replacement);
+
+        $this->assertSame(['a' => 1, 'b' => 3, 'c' => 4], $replaced);
+    }
+
+    /**
+     * Test unique removes duplicate values.
+     */
+    public function test_unique_removes_duplicate_values(): void
+    {
+        $array = [1, 2, 2, 3, 3, 3];
+
+        $unique = Arr::unique($array);
+
+        $this->assertSame([0 => 1, 1 => 2, 3 => 3], $unique);
+    }
+
+    /**
+     * Test diff computes array difference.
+     */
+    public function test_diff_computes_array_difference(): void
     {
         $array1 = [1, 2, 3, 4];
-        $array2 = [3, 4, 5, 6];
-        $result = Arr::diff($array1, $array2);
+        $array2 = [2, 4];
 
-        $this->assertEquals([1, 2], array_values($result));
+        $diff = Arr::diff($array1, $array2);
+
+        $this->assertSame([0 => 1, 2 => 3], $diff);
     }
 
     /**
-     * Test that intersect() returns the intersection of arrays.
-     *
-     * Verifies that only values present in all arrays are returned.
-     */
-    public function test_intersect_returns_intersection(): void
-    {
-        $array1 = [1, 2, 3, 4];
-        $array2 = [3, 4, 5, 6];
-        $result = Arr::intersect($array1, $array2);
-
-        $this->assertEquals([3, 4], array_values($result));
-    }
-
-    /**
-     * Test that merge() combines multiple arrays.
-     *
-     * Verifies that arrays are merged with later values overwriting earlier ones.
+     * Test merge combines arrays.
      */
     public function test_merge_combines_arrays(): void
     {
         $array1 = ['a' => 1, 'b' => 2];
         $array2 = ['b' => 3, 'c' => 4];
-        $result = Arr::merge($array1, $array2);
 
-        $this->assertEquals(['a' => 1, 'b' => 3, 'c' => 4], $result);
+        $merged = Arr::merge($array1, $array2);
+
+        $this->assertSame(['a' => 1, 'b' => 3, 'c' => 4], $merged);
     }
 
     /**
-     * Test that chunk() splits an array into chunks.
-     *
-     * Verifies that the array is divided into smaller arrays of specified size.
+     * Test sum calculates array sum.
      */
-    public function test_chunk_splits_array(): void
+    public function test_sum_calculates_array_sum(): void
     {
-        $input = [1, 2, 3, 4, 5];
-        $result = Arr::chunk($input, 2);
+        $array = [1, 2, 3, 4, 5];
 
-        $this->assertEquals([[1, 2], [3, 4], [5]], $result);
+        $sum = Arr::sum($array);
+
+        $this->assertSame(15, $sum);
     }
 
     /**
-     * Test that filter() removes elements based on callback.
-     *
-     * Verifies that only elements passing the callback test are retained.
+     * Test product calculates array product.
      */
-    public function test_filter_removes_elements(): void
+    public function test_product_calculates_array_product(): void
     {
-        $input = [1, 2, 3, 4, 5];
-        $result = Arr::filter($input, fn ($value) => $value > 2);
+        $array = [2, 3, 4];
 
-        $this->assertEquals([3, 4, 5], array_values($result));
+        $product = Arr::product($array);
+
+        $this->assertSame(24, $product);
     }
 
     /**
-     * Test that inArray() checks if a value exists in the array.
-     *
-     * Verifies that the method correctly identifies existing and non-existing values.
-     */
-    public function test_in_array_checks_value_existence(): void
-    {
-        $input = [1, 2, 3];
-
-        $this->assertTrue(Arr::inArray(2, $input));
-        $this->assertFalse(Arr::inArray(4, $input));
-    }
-
-    /**
-     * Test that sum() calculates the total of all values.
-     *
-     * Verifies that all numeric values in the array are summed correctly.
-     */
-    public function test_sum_calculates_total(): void
-    {
-        $input = [1, 2, 3, 4, 5];
-        $result = Arr::sum($input);
-
-        $this->assertEquals(15, $result);
-    }
-
-    /**
-     * Test that product() calculates the product of all values.
-     *
-     * Verifies that all numeric values in the array are multiplied together.
-     */
-    public function test_product_calculates_product(): void
-    {
-        $input = [2, 3, 4];
-        $result = Arr::product($input);
-
-        $this->assertEquals(24, $result);
-    }
-
-    /**
-     * Test that count() returns the number of elements.
-     *
-     * Verifies that the method correctly counts array elements.
+     * Test count returns element count.
      */
     public function test_count_returns_element_count(): void
     {
-        $input = [1, 2, 3, 4, 5];
-        $result = Arr::count($input);
+        $array = ['a', 'b', 'c'];
 
-        $this->assertEquals(5, $result);
+        $count = Arr::count($array);
+
+        $this->assertSame(3, $count);
+    }
+
+    /**
+     * Test chunk splits array into chunks.
+     */
+    public function test_chunk_splits_array_into_chunks(): void
+    {
+        $array = [1, 2, 3, 4, 5];
+
+        $chunked = Arr::chunk($array, 2);
+
+        $this->assertSame([[1, 2], [3, 4], [5]], $chunked);
+    }
+
+    /**
+     * Test isList checks if array is a list.
+     */
+    public function test_is_list_checks_if_array_is_list(): void
+    {
+        $list = [1, 2, 3];
+        $assoc = ['a' => 1, 'b' => 2];
+
+        $this->assertTrue(Arr::isList($list));
+        $this->assertFalse(Arr::isList($assoc));
+    }
+
+    /**
+     * Test keyFirst returns first key.
+     */
+    public function test_key_first_returns_first_key(): void
+    {
+        $array = ['a' => 1, 'b' => 2, 'c' => 3];
+
+        $firstKey = Arr::keyFirst($array);
+
+        $this->assertSame('a', $firstKey);
+    }
+
+    /**
+     * Test keyLast returns last key.
+     */
+    public function test_key_last_returns_last_key(): void
+    {
+        $array = ['a' => 1, 'b' => 2, 'c' => 3];
+
+        $lastKey = Arr::keyLast($array);
+
+        $this->assertSame('c', $lastKey);
+    }
+
+    /**
+     * Test search finds value in array.
+     */
+    public function test_search_finds_value_in_array(): void
+    {
+        $array = ['a' => 1, 'b' => 2, 'c' => 3];
+
+        $key = Arr::search(2, $array);
+
+        $this->assertSame('b', $key);
+    }
+
+    /**
+     * Test search returns false when value not found.
+     */
+    public function test_search_returns_false_when_value_not_found(): void
+    {
+        $array = ['a' => 1, 'b' => 2, 'c' => 3];
+
+        $key = Arr::search(99, $array);
+
+        $this->assertFalse($key);
+    }
+
+    /**
+     * Test inArray checks if value exists.
+     */
+    public function test_in_array_checks_if_value_exists(): void
+    {
+        $array = [1, 2, 3];
+
+        $this->assertTrue(Arr::inArray(2, $array));
+        $this->assertFalse(Arr::inArray(99, $array));
+    }
+
+    /**
+     * Test range creates array of sequential values.
+     */
+    public function test_range_creates_array_of_sequential_values(): void
+    {
+        $range = Arr::range(1, 5);
+
+        $this->assertSame([1, 2, 3, 4, 5], $range);
+    }
+
+    /**
+     * Test range with step.
+     */
+    public function test_range_with_step(): void
+    {
+        $range = Arr::range(0, 10, 2);
+
+        $this->assertSame([0, 2, 4, 6, 8, 10], $range);
+    }
+
+    /**
+     * Test each applies callback to array.
+     */
+    public function test_each_applies_callback_to_array(): void
+    {
+        $array = [1, 2, 3];
+
+        $result = Arr::each(fn ($value) => $value * 2, $array);
+
+        $this->assertSame([2, 4, 6], $result);
+    }
+
+    /**
+     * Test column extracts column from multidimensional array.
+     */
+    public function test_column_extracts_column_from_multidimensional_array(): void
+    {
+        $array = [
+            ['id' => 1, 'name' => 'Alice'],
+            ['id' => 2, 'name' => 'Bob'],
+            ['id' => 3, 'name' => 'Charlie'],
+        ];
+
+        $names = Arr::column($array, 'name');
+
+        $this->assertSame(['Alice', 'Bob', 'Charlie'], $names);
+    }
+
+    /**
+     * Test fill creates array with repeated value.
+     */
+    public function test_fill_creates_array_with_repeated_value(): void
+    {
+        $filled = Arr::fill(0, 3, 'x');
+
+        $this->assertSame(['x', 'x', 'x'], $filled);
     }
 }
