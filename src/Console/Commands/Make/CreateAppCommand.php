@@ -913,13 +913,43 @@ final class CreateAppCommand extends BaseMakeCommand
     /**
      * Get and validate application name with smart suggestions.
      *
-     * @return string Validated application name
+     * Obtains and validates the application name from command argument with
+     * smart suggestions if the name is already taken.
+     *
+     * Validation rules:
+     * - Must be lowercase alphanumeric with hyphens
+     * - Pattern: ^[a-z0-9]+(-[a-z0-9]+)*$
+     * - Examples: admin, api-gateway, user-service
+     * - Invalid: Admin, api_gateway, -admin, admin-
+     *
+     * Name availability check:
+     * - Checks if directory already exists in apps/ directory
+     * - If taken, generates smart suggestions using NameSuggestionService
+     * - Suggestions include: suffixes (-v2, -new), prefixes (my-, new-), variations
+     *
+     * Smart suggestions:
+     * - Generated based on original name
+     * - Filtered to ensure valid format (lowercase alphanumeric with hyphens)
+     * - Filtered to ensure availability (directory doesn't exist)
+     * - Best suggestion is highlighted as "recommended"
+     * - User can select from suggestions or enter custom name
+     *
+     * Error handling:
+     * - Exits with Command::FAILURE if name is invalid or unavailable
+     * - Displays error in JSON format if --json flag is set
+     * - Displays human-readable error otherwise
+     *
+     * @param  InputInterface $input   Command input (for reading name argument)
+     * @param  bool           $isQuiet Suppress output messages
+     * @param  bool           $isJson  Output in JSON format
+     * @return string         Validated application name
      */
     private function getValidatedAppName(InputInterface $input, bool $isQuiet, bool $isJson): string
     {
+        // Get application name from command argument
         $name = $input->getArgument('name');
 
-        // Validate the name format first (inline validation)
+        // Validate that name was provided
         if (! is_string($name) || $name === '') {
             $errorMsg = 'Application name is required';
             if ($isJson) {
@@ -933,6 +963,7 @@ final class CreateAppCommand extends BaseMakeCommand
             exit(Command::FAILURE);
         }
 
+        // Validate name format (lowercase alphanumeric with hyphens)
         if (preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $name) !== 1) {
             $errorMsg = 'Application name must be lowercase alphanumeric with hyphens (e.g., my-app)';
             if ($isJson) {
@@ -946,11 +977,13 @@ final class CreateAppCommand extends BaseMakeCommand
             exit(Command::FAILURE);
         }
 
+        // Build application path
         $root = $this->getMonorepoRoot();
         $appPath = "{$root}/apps/{$name}";
 
         // Check if name is available
         if (! $this->checkDirectoryExists($name, $appPath, 'application', $isQuiet, $isJson)) {
+            // Name is available
             return $name;
         }
 
@@ -959,13 +992,16 @@ final class CreateAppCommand extends BaseMakeCommand
             $this->line('');
         }
 
+        // Generate smart suggestions using NameSuggestionService
         $nameSuggestionService = NameSuggestionService::make();
         $suggestions = $nameSuggestionService->suggest(
             $name,
             'app',
+            // Filter suggestions: valid format and available
             fn (?string $suggestedName): bool => is_string($suggestedName) && $suggestedName !== '' && preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $suggestedName) === 1 && ! $this->filesystem()->isDirectory("{$root}/apps/{$suggestedName}")
         );
 
+        // Check if suggestions were generated
         if ($suggestions === []) {
             $errorMsg = 'Could not generate alternative names. Please choose a different name.';
             if ($isJson) {
@@ -979,7 +1015,7 @@ final class CreateAppCommand extends BaseMakeCommand
             exit(Command::FAILURE);
         }
 
-        // Get the best suggestion
+        // Get the best suggestion (highest score)
         $bestSuggestion = $nameSuggestionService->getBestSuggestion($suggestions);
 
         // Display suggestions with recommendation
@@ -1004,7 +1040,7 @@ final class CreateAppCommand extends BaseMakeCommand
             required: true
         );
 
-        // Validate the chosen name format (inline validation)
+        // Validate the chosen name format
         if (! is_string($choice) || $choice === '' || preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $choice) !== 1) {
             $errorMsg = 'Invalid application name format';
             if ($isJson) {
@@ -1033,6 +1069,7 @@ final class CreateAppCommand extends BaseMakeCommand
             exit(Command::FAILURE);
         }
 
+        // Display success message
         if (! $isQuiet && ! $isJson) {
             $this->info("✓ Application name '{$choice}' is available");
         }
