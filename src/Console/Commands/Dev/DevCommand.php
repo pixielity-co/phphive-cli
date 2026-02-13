@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace PhpHive\Cli\Console\Commands\Dev;
 
-use function array_column;
-use function count;
-
 use Override;
 use PhpHive\Cli\Console\Commands\BaseCommand;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -88,12 +85,23 @@ final class DevCommand extends BaseCommand
      *
      * Inherits common options from BaseCommand (workspace, force, no-cache, no-interaction)
      * and adds command-specific options for development server customization.
+     *
+     * Options added:
+     * - --port (-p): Custom port number for the development server (future feature)
+     *
+     * Note: The port option is currently a placeholder for future implementation.
+     * Most development servers read port configuration from their own config files
+     * or environment variables. This option will be implemented when workspace-level
+     * port configuration is supported.
      */
     #[Override]
     protected function configure(): void
     {
         parent::configure();
 
+        // Add port option for future development server customization
+        // Currently a placeholder - will be implemented when workspace-level
+        // port configuration is supported
         $this->addOption(
             'port',
             'p',
@@ -105,17 +113,66 @@ final class DevCommand extends BaseCommand
     /**
      * Execute the dev command.
      *
-     * This method orchestrates the development server startup:
-     * 1. Gets workspace from option or prompts for selection
-     * 2. Discovers available application workspaces
-     * 3. Auto-selects if only one app exists
-     * 4. Provides interactive selection for multiple apps
-     * 5. Validates the selected workspace exists
-     * 6. Starts the dev server via Turbo
-     * 7. Streams output to console in real-time
+     * This method orchestrates the development server startup process with
+     * intelligent workspace selection and validation. It provides a seamless
+     * developer experience by auto-selecting single apps or prompting for
+     * selection when multiple apps are available.
      *
-     * The dev task executes the 'dev' script from the workspace's package.json,
-     * which typically starts a development server with hot reload capabilities.
+     * Execution flow:
+     * 1. Check if workspace specified via --workspace option
+     * 2. If not specified:
+     *    a. Discover all application workspaces (excludes packages)
+     *    b. Validate at least one app exists
+     *    c. Auto-select if only one app found
+     *    d. Prompt for selection if multiple apps found
+     * 3. Validate selected workspace exists in monorepo
+     * 4. Display intro banner with workspace name
+     * 5. Execute dev task via Turbo with workspace filter
+     * 6. Stream server output to console in real-time
+     * 7. Return exit code based on server process
+     *
+     * Workspace discovery:
+     * - Uses getApps() to find application workspaces
+     * - Excludes package workspaces (libraries/shared code)
+     * - Apps are identified by their location in apps/* directory
+     * - Packages are in packages/* directory
+     *
+     * Interactive selection:
+     * - Only apps (not packages) are shown in selection menu
+     * - Apps are displayed by their workspace name
+     * - Selection uses arrow keys and Enter
+     * - Can be bypassed with --workspace option
+     * - Skipped in non-interactive mode (--no-interaction)
+     *
+     * Auto-selection behavior:
+     * - If only one app exists, it's automatically selected
+     * - User is informed which app is starting
+     * - No prompt is shown (faster workflow)
+     * - Useful for monorepos with single app
+     *
+     * Turborepo integration:
+     * - Executes 'dev' task from workspace's package.json
+     * - Uses --filter to target specific workspace
+     * - Streams output in real-time (not buffered)
+     * - Respects workspace dependencies
+     * - Supports hot reload if configured in workspace
+     *
+     * Development server behavior:
+     * - Runs in foreground (blocking)
+     * - Output streamed to console
+     * - Ctrl+C stops the server
+     * - Exit code propagated from server process
+     * - Hot reload typically enabled by workspace config
+     *
+     * Error handling:
+     * - No apps found: Error message and exit
+     * - Workspace not found: Error message and exit
+     * - Server startup failure: Exit code propagated
+     * - Invalid workspace name: Validation error
+     *
+     * Exit codes:
+     * - 0 (SUCCESS): Server started and stopped cleanly
+     * - 1 (FAILURE): No apps found, workspace not found, or server error
      *
      * @param  InputInterface  $input  Command input (arguments and options)
      * @param  OutputInterface $output Command output (for displaying messages)
@@ -123,54 +180,92 @@ final class DevCommand extends BaseCommand
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        // Get workspace from option if provided
+        // =====================================================================
+        // GET WORKSPACE FROM OPTION
+        // =====================================================================
+
+        // Extract workspace option if provided
+        // null = no workspace specified, trigger interactive selection
         $workspaceOption = $this->option('workspace');
         $workspace = is_string($workspaceOption) && $workspaceOption !== '' ? $workspaceOption : null;
+
+        // =====================================================================
+        // INTERACTIVE WORKSPACE SELECTION
+        // =====================================================================
 
         // If no workspace specified, provide interactive selection
         if ($workspace === null) {
             // Get all application workspaces (not packages)
+            // Apps are typically in apps/* directory
+            // Packages are in packages/* directory (excluded)
             $apps = $this->getApps();
 
-            // Check if any apps exist
-            if ($apps === []) {
+            // Check if any apps exist in the monorepo
+            if ($apps->isEmpty()) {
                 $this->error('No apps found in the monorepo');
 
                 return Command::FAILURE;
             }
 
             // Auto-select if only one app exists
-            if (count($apps) === 1) {
-                $workspace = $apps[0]['name'];
+            // This provides a faster workflow for single-app monorepos
+            if ($apps->count() === 1) {
+                $workspace = $apps->first()['name'];
                 $this->info("Starting {$workspace}...");
             } else {
-                // Multiple apps - let user choose
+                // Multiple apps - let user choose interactively
+                // Displays a selection menu with arrow key navigation
                 $workspace = $this->select(
                     'Select app to run',
-                    array_column($apps, 'name'),
+                    $apps->pluck('name')->all(),
                 );
             }
         }
 
-        // Verify the selected workspace exists
+        // =====================================================================
+        // VALIDATE WORKSPACE EXISTS
+        // =====================================================================
+
+        // Verify the selected workspace exists in the monorepo
+        // This catches typos in --workspace option or invalid selections
         if (! $this->hasWorkspace($workspace)) {
             $this->error("Workspace '{$workspace}' not found");
 
             return Command::FAILURE;
         }
 
-        // Display intro banner
+        // =====================================================================
+        // DISPLAY INTRO BANNER
+        // =====================================================================
+
+        // Show which workspace is starting
         $this->intro("Starting Development Server: {$workspace}");
 
+        // =====================================================================
+        // START DEVELOPMENT SERVER VIA TURBOREPO
+        // =====================================================================
+
         // Run the dev task via Turbo with workspace filter
-        // Turbo will execute the 'dev' script from the workspace's package.json
-        // Output is streamed in real-time to the console
+        // Turbo will:
+        // 1. Find the workspace's package.json
+        // 2. Execute the 'dev' script defined in package.json
+        // 3. Stream output to console in real-time
+        // 4. Handle process signals (Ctrl+C)
+        // 5. Return exit code from dev server process
+        //
+        // The 'filter' option ensures only the specified workspace runs
+        // Dependencies are not started automatically (unlike build task)
         $exitCode = $this->turboRun('dev', [
             'filter' => $workspace,  // Only run for this workspace
         ]);
 
+        // =====================================================================
+        // RETURN EXIT CODE
+        // =====================================================================
+
         // Return appropriate exit code
-        // 0 = success, non-zero = failure
+        // 0 = server started and stopped cleanly
+        // Non-zero = server error or startup failure
         return $exitCode === 0 ? Command::SUCCESS : Command::FAILURE;
     }
 }
