@@ -51,6 +51,26 @@ final readonly class PreflightChecker
     ) {}
 
     /**
+     * Create a new instance of the preflight checker.
+     *
+     * Static factory method for convenient instantiation. Automatically
+     * resolves the Process dependency from the container or creates a new one.
+     *
+     * Example usage:
+     * ```php
+     * $checker = PreflightChecker::make();
+     * $result = $checker->check();
+     * ```
+     *
+     * @param  Process|null $process Optional Process instance (creates new if not provided)
+     * @return self         New instance of PreflightChecker
+     */
+    public static function make(?Process $process = null): self
+    {
+        return new self($process ?? Process::make());
+    }
+
+    /**
      * Run all preflight checks.
      *
      * Executes a series of checks to validate the environment.
