@@ -36,6 +36,11 @@ final readonly class Docker
 
     /**
      * Create a new Docker instance (static factory).
+     *
+     * Resolves Process dependency via its static factory method to avoid
+     * circular dependency with the App container.
+     *
+     * @return self New Docker instance with Process dependency
      */
     public static function make(): self
     {

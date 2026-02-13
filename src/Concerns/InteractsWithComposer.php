@@ -5,17 +5,18 @@ declare(strict_types=1);
 namespace PhpHive\Cli\Concerns;
 
 use function explode;
-use function file_exists;
 use function getcwd;
 use function getenv;
 
 use const PHP_EOL;
 use const PHP_OS_FAMILY;
 
+use PhpHive\Cli\Support\Process;
+
 use function preg_match;
 
 use RuntimeException;
-use Symfony\Component\Process\Process;
+use Symfony\Component\Process\Process as SymfonyProcess;
 
 use function trim;
 
@@ -76,20 +77,30 @@ trait InteractsWithComposer
         $commandArray = [$composerBinary, ...explode(' ', $command)];
 
         // Create process with explicit command array
-        $process = new Process(
+        $process = $this->process()->execute(
             $commandArray,
             $cwd,
             timeout: null, // No timeout for long-running operations
         );
 
         // Enable TTY mode for interactive output (colors, progress bars)
-        $process->setTty(Process::isTtySupported());
+        $process->setTty(SymfonyProcess::isTtySupported());
 
         // Run process and stream output in real-time
         return $process->run(function ($type, $buffer): void {
             echo $buffer;
         });
     }
+
+    /**
+     * Get the Process service.
+     *
+     * This abstract method must be implemented by the host class to provide
+     * access to the Process service for executing shell commands.
+     *
+     * @return Process The Process service instance
+     */
+    abstract protected function process(): Process;
 
     /**
      * Find the Composer binary to execute.
@@ -108,24 +119,24 @@ trait InteractsWithComposer
     {
         // Check environment variable first
         $envBinary = getenv('COMPOSER_BINARY');
-        if (\is_string($envBinary) && $envBinary !== '' && file_exists($envBinary)) {
+        if (\is_string($envBinary) && $envBinary !== '' && $this->filesystem()->exists($envBinary)) {
             return $envBinary;
         }
 
         // Check for composer.phar in current directory
-        if (file_exists(getcwd() . '/composer.phar')) {
+        if ($this->filesystem()->exists(getcwd() . '/composer.phar')) {
             return getcwd() . '/composer.phar';
         }
 
         // Check for composer.phar in monorepo root
         $monorepoRoot = $this->getMonorepoRoot();
-        if (file_exists($monorepoRoot . '/composer.phar')) {
+        if ($this->filesystem()->exists($monorepoRoot . '/composer.phar')) {
             return $monorepoRoot . '/composer.phar';
         }
 
         // Try to find global composer using which (Unix) or where (Windows)
         $whichCommand = PHP_OS_FAMILY === 'Windows' ? 'where' : 'which';
-        $process = Process::fromShellCommandline("{$whichCommand} composer");
+        $process = $this->process()->execute(["{$whichCommand} composer"]);
         $process->run();
 
         if ($process->isSuccessful()) {
