@@ -6,10 +6,7 @@ namespace PhpHive\Cli\Factories;
 
 use InvalidArgumentException;
 use PhpHive\Cli\Contracts\PackageTypeInterface;
-use PhpHive\Cli\PackageTypes\LaravelPackageType;
-use PhpHive\Cli\PackageTypes\MagentoPackageType;
-use PhpHive\Cli\PackageTypes\SkeletonPackageType;
-use PhpHive\Cli\PackageTypes\SymfonyPackageType;
+use PhpHive\Cli\Enums\PackageType;
 use PhpHive\Cli\Support\Composer;
 
 /**
@@ -26,11 +23,6 @@ use PhpHive\Cli\Support\Composer;
  */
 final readonly class PackageTypeFactory
 {
-    /**
-     * Valid package types.
-     */
-    private const array VALID_TYPES = ['laravel', 'magento', 'symfony', 'skeleton'];
-
     /**
      * Create a new package type factory.
      *
@@ -52,17 +44,20 @@ final readonly class PackageTypeFactory
     {
         if (! $this->isValidType($type)) {
             throw new InvalidArgumentException(
-                "Invalid package type '{$type}'. Valid types: " . implode(', ', self::VALID_TYPES)
+                "Invalid package type '{$type}'. Valid types: " . implode(', ', PackageType::values())
             );
         }
 
-        return match ($type) {
-            'laravel' => new LaravelPackageType($this->composer),
-            'magento' => new MagentoPackageType($this->composer),
-            'symfony' => new SymfonyPackageType($this->composer),
-            'skeleton' => new SkeletonPackageType($this->composer),
-            default => throw new InvalidArgumentException("Unsupported package type: {$type}"),
-        };
+        // Get the enum case and its class name
+        $packageType = PackageType::from($type);
+
+        /** @var class-string<PackageTypeInterface> $className */
+        $className = $packageType->getClassName();
+
+        // Instantiate and return the package type
+        // All PackageType implementations extend AbstractPackageType which accepts Composer in constructor
+        // @phpstan-ignore-next-line - Static analyzer doesn't understand we're instantiating concrete classes, not the interface
+        return new $className($this->composer);
     }
 
     /**
@@ -73,7 +68,7 @@ final readonly class PackageTypeFactory
      */
     public function isValidType(string $type): bool
     {
-        return in_array($type, self::VALID_TYPES, true);
+        return PackageType::tryFrom($type) !== null;
     }
 
     /**
@@ -83,7 +78,7 @@ final readonly class PackageTypeFactory
      */
     public function getValidTypes(): array
     {
-        return self::VALID_TYPES;
+        return PackageType::values();
     }
 
     /**
@@ -93,11 +88,12 @@ final readonly class PackageTypeFactory
      */
     public function getTypeOptions(): array
     {
-        return [
-            'laravel' => new LaravelPackageType($this->composer)->getDescription(),
-            'magento' => new MagentoPackageType($this->composer)->getDescription(),
-            'symfony' => new SymfonyPackageType($this->composer)->getDescription(),
-            'skeleton' => new SkeletonPackageType($this->composer)->getDescription(),
-        ];
+        $options = [];
+
+        foreach (PackageType::cases() as $case) {
+            $options[$case->value] = $case->getDescription();
+        }
+
+        return $options;
     }
 }
