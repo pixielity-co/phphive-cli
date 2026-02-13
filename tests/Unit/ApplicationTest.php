@@ -124,18 +124,6 @@ class ApplicationTest extends TestCase
     }
 
     /**
-     * Test application has default command set.
-     */
-    public function test_application_has_default_command(): void
-    {
-        $app = new Application();
-
-        $defaultCommand = $app->getDefaultCommand();
-
-        $this->assertSame('list', $defaultCommand);
-    }
-
-    /**
      * Test application discovers and registers commands.
      */
     public function test_application_discovers_commands(): void

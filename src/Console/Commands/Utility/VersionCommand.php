@@ -4,15 +4,14 @@ declare(strict_types=1);
 
 namespace PhpHive\Cli\Console\Commands\Utility;
 
+use Illuminate\Support\Str;
+
 use function implode;
 use function json_decode;
 use function json_encode;
 
 use Override;
 use PhpHive\Cli\Console\Commands\BaseCommand;
-
-use function strtolower;
-
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -338,7 +337,7 @@ final class VersionCommand extends BaseCommand
         }
 
         // Normalize tool name to lowercase for case-insensitive matching
-        $tool = strtolower($tool);
+        $tool = Str::lower($tool);
 
         // Validate tool name
         if (! isset($versions[$tool])) {

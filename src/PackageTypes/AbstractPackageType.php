@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PhpHive\Cli\PackageTypes;
 
 use Exception;
+use Illuminate\Support\Str;
 use PhpHive\Cli\Contracts\PackageTypeInterface;
 use PhpHive\Cli\Support\Composer;
 
@@ -328,6 +329,6 @@ abstract class AbstractPackageType implements PackageTypeInterface
      */
     protected function generateComposerPackageName(string $name): string
     {
-        return 'phphive/' . strtolower($name);
+        return 'phphive/' . Str::lower($name);
     }
 }

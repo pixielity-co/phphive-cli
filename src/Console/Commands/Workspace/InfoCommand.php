@@ -6,10 +6,10 @@ namespace PhpHive\Cli\Console\Commands\Workspace;
 
 use function count;
 
+use Illuminate\Support\Str;
 use Override;
 use PhpHive\Cli\Console\Commands\BaseCommand;
 
-use function str_starts_with;
 use function strlen;
 use function substr;
 
@@ -269,7 +269,7 @@ final class InfoCommand extends BaseCommand
      * and work across different environments.
      *
      * String operations:
-     * - str_starts_with(): Check if path begins with root (PHP 8.0+)
+     * - Str::startWith(): Check if path begins with root (PHP 8.0+)
      * - substr(): Remove root prefix from path
      * - strlen(): Get length of root path for substr offset
      * - +1 offset: Remove the trailing slash after root
@@ -292,7 +292,7 @@ final class InfoCommand extends BaseCommand
         $root = $this->getMonorepoRoot();
 
         // Check if path starts with monorepo root and strip it
-        if (str_starts_with($workspace['path'], $root)) {
+        if (Str::startsWith($workspace['path'], $root)) {
             // Strip root prefix and leading slash
             // Example: /home/user/project/apps/api -> apps/api
             $workspace['path'] = substr($workspace['path'], strlen($root) + 1);

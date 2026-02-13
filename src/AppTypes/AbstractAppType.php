@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PhpHive\Cli\AppTypes;
 
+use Illuminate\Support\Str;
 use PhpHive\Cli\Concerns\Infrastructure\InteractsWithDatabase;
 use PhpHive\Cli\Concerns\Infrastructure\InteractsWithElasticsearch;
 use PhpHive\Cli\Concerns\Infrastructure\InteractsWithMeilisearch;
@@ -473,7 +474,7 @@ abstract class AbstractAppType implements AppTypeInterface
     {
         // Replace any non-alphanumeric character (except hyphens) with a hyphen
         // Then convert to lowercase for consistency
-        return strtolower(preg_replace('/[^a-zA-Z0-9-]/', '-', $name) ?? $name);
+        return Str::lower(preg_replace('/[^a-zA-Z0-9-]/', '-', $name) ?? $name);
     }
 
     /**
