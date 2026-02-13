@@ -396,8 +396,8 @@ final class CreateAppCommand extends BaseMakeCommand
             $name = $this->getValidatedAppName($input, $isQuiet, $isJson);
 
             // Step 3: Select and validate app type
-            $appType = $this->selectAppType($input, $isQuiet, $isJson);
-            if ($appType === null) {
+            $appType = $this->selectAppType($input, $isJson);
+            if (! $appType instanceof AppTypeInterface) {
                 return Command::FAILURE;
             }
 
@@ -570,12 +570,11 @@ final class CreateAppCommand extends BaseMakeCommand
      * If validation fails (invalid type provided), error messages are displayed
      * and null is returned to halt the creation process.
      *
-     * @param  InputInterface        $input   Command input (for reading --type option)
-     * @param  bool                  $isQuiet Suppress output messages
-     * @param  bool                  $isJson  Output in JSON format
+     * @param  InputInterface        $input  Command input (for reading --type option)
+     * @param  bool                  $isJson Output in JSON format
      * @return AppTypeInterface|null App type instance, or null if validation failed
      */
-    private function selectAppType(InputInterface $input, bool $isQuiet, bool $isJson): ?AppTypeInterface
+    private function selectAppType(InputInterface $input, bool $isJson): ?AppTypeInterface
     {
         $typeOption = $input->getOption('type');
 

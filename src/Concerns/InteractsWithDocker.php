@@ -262,15 +262,15 @@ trait InteractsWithDocker
     {
         $os = Str::lower(PHP_OS);
 
-        if (str_contains($os, 'darwin')) {
+        if (Str::contains($os, 'darwin')) {
             return 'macos';
         }
 
-        if (str_contains($os, 'linux')) {
+        if (Str::contains($os, 'linux')) {
             return 'linux';
         }
 
-        if (str_contains($os, 'win')) {
+        if (Str::contains($os, 'win')) {
             return 'windows';
         }
 
@@ -656,7 +656,7 @@ trait InteractsWithDocker
             default: (string) $defaultPort,
             required: true,
             hint: $fullHint,
-            validate: function ($value) {
+            validate: function ($value): ?string {
                 $port = (int) $value;
                 if ($port < 1 || $port > 65535) {
                     return 'Port must be between 1 and 65535';

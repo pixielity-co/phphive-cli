@@ -622,7 +622,7 @@ final class MakeWorkspaceCommand extends BaseMakeCommand
                 label: 'What is the workspace name?',
                 placeholder: 'my-project',
                 required: true,
-                validate: fn ($value) => (is_string($value) && $value !== '' && preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $value) === 1) ? null : 'Workspace name must be lowercase alphanumeric with hyphens (e.g., my-project)',
+                validate: fn ($value): ?string => (is_string($value) && $value !== '' && preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $value) === 1) ? null : 'Workspace name must be lowercase alphanumeric with hyphens (e.g., my-project)',
             );
         }
 

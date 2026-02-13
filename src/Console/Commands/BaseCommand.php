@@ -132,32 +132,6 @@ abstract class BaseCommand extends Command
     }
 
     /**
-     * Initialize the command before execution.
-     *
-     * This method is called by Symfony Console before execute() runs.
-     * It stores references to the input and output interfaces for easy
-     * access throughout the command lifecycle.
-     *
-     * Override this method in child classes to perform custom initialization,
-     * but always call parent::initialize() to ensure proper setup.
-     *
-     * @param InputInterface  $input  The input interface
-     * @param OutputInterface $output The output interface
-     */
-    public function initialize(InputInterface $input, OutputInterface $output): void
-    {
-        // Store input and output for convenient access in command methods
-        $this->input = $input;
-        $this->output = $output;
-
-        // Set output for prompt methods
-        self::setOutput($output);
-
-        // Call parent initialization to maintain Symfony Console behavior
-        parent::initialize($input, $output);
-    }
-
-    /**
      * Get the value of a command option.
      *
      * Options are passed to commands using the --option-name syntax.
@@ -205,6 +179,32 @@ abstract class BaseCommand extends Command
         $optionValue = $this->option($name);
 
         return in_array($optionValue, [true, '1', 1], true);
+    }
+
+    /**
+     * Initialize the command before execution.
+     *
+     * This method is called by Symfony Console before execute() runs.
+     * It stores references to the input and output interfaces for easy
+     * access throughout the command lifecycle.
+     *
+     * Override this method in child classes to perform custom initialization,
+     * but always call parent::initialize() to ensure proper setup.
+     *
+     * @param InputInterface  $input  The input interface
+     * @param OutputInterface $output The output interface
+     */
+    protected function initialize(InputInterface $input, OutputInterface $output): void
+    {
+        // Store input and output for convenient access in command methods
+        $this->input = $input;
+        $this->output = $output;
+
+        // Set output for prompt methods
+        self::setOutput($output);
+
+        // Call parent initialization to maintain Symfony Console behavior
+        parent::initialize($input, $output);
     }
 
     /**

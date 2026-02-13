@@ -304,7 +304,7 @@ final readonly class StorageSetupService
             return true;
         }
 
-        return str_contains($bucketProcess->getErrorOutput(), 'already exists');
+        return Str::contains($bucketProcess->getErrorOutput(), 'already exists');
     }
 
     /**

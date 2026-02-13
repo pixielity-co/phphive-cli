@@ -297,7 +297,7 @@ abstract class AbstractPackageType implements PackageTypeInterface
      */
     protected function convertToNamespace(string $name): string
     {
-        return str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $name)));
+        return Str::replace(' ', '', Str::ucfirst(Str::lower(Str::replace(['-', '_'], ' ', $name))));
     }
 
     /**

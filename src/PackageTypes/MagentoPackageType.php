@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PhpHive\Cli\PackageTypes;
 
 use Exception;
+use Illuminate\Support\Str;
 use Override;
 use PhpHive\Cli\Enums\PackageType;
 
@@ -255,11 +256,11 @@ final class MagentoPackageType extends AbstractPackageType
         // Replace any hyphens with underscores in the namespace part
         // Example: 'test-magento' -> 'Monorepo_TestMagento'
         // Example: 'my-custom-module' -> 'Monorepo_MyCustomModule'
-        $moduleName = 'Monorepo_' . str_replace('-', '_', $packageNamespace);
+        $moduleName = 'Monorepo_' . Str::replace('-', '_', $packageNamespace);
 
         // Create route ID (must use underscores, not hyphens)
         // Example: 'test-magento-new' -> 'test_magento_new'
-        $routeId = str_replace('-', '_', $name);
+        $routeId = Str::replace('-', '_', $name);
 
         // Use lowercase keys - Stub facade will convert them to UPPERCASE
         // and wrap with {{KEY}} delimiters automatically

@@ -8,23 +8,17 @@ use function array_map;
 use function explode;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 use function json_encode;
 
 use Override;
 use PhpHive\Cli\Console\Commands\BaseCommand;
-
-use function str_starts_with;
-use function strlen;
-use function substr;
-
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-
-use function ucfirst;
 
 /**
  * List Command.
@@ -405,7 +399,7 @@ final class ListCommand extends BaseCommand
      * - Example: /home/user/project/apps/api -> apps/api
      *
      * String operations:
-     * - str_starts_with(): Check if path begins with root (PHP 8.0+)
+     * - Str::startsWith(): Check if path begins with root (PHP 8.0+)
      * - substr(): Remove root prefix from path
      * - strlen(): Get length of root path for substr offset
      * - +1 offset: Remove the trailing slash after root
@@ -421,10 +415,10 @@ final class ListCommand extends BaseCommand
         // Transform each workspace's path from absolute to relative
         return $workspaces->map(function (array $workspace) use ($root): array {
             // Check if path starts with monorepo root
-            if (str_starts_with($workspace['path'], $root)) {
+            if (Str::startsWith($workspace['path'], $root)) {
                 // Strip root prefix and leading slash
                 // Example: /home/user/project/apps/api -> apps/api
-                $workspace['path'] = substr($workspace['path'], strlen($root) + 1);
+                $workspace['path'] = Str::substr($workspace['path'], Str::length($root) + 1);
             }
 
             return $workspace;
@@ -475,7 +469,7 @@ final class ListCommand extends BaseCommand
      * - 'path' -> 'Path': Filesystem path to workspace
      *
      * Fallback behavior:
-     * - If column not in map: Capitalize first letter (ucfirst)
+     * - If column not in map: Capitalize first letter (Str::ucfirst)
      * - Allows custom columns to work without explicit mapping
      * - Example: 'custom' -> 'Custom'
      *
@@ -499,8 +493,8 @@ final class ListCommand extends BaseCommand
             'path' => 'Path',
         ];
 
-        // Map each column to its header label, with fallback to ucfirst
-        return array_map(fn (string $col): string => $headerMap[$col] ?? ucfirst($col), $columns);
+        // Map each column to its header label, with fallback to Str::ucfirst
+        return array_map(fn (string $col): string => $headerMap[$col] ?? Str::ucfirst($col), $columns);
     }
 
     /**

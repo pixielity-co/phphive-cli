@@ -5,17 +5,17 @@ declare(strict_types=1);
 namespace PhpHive\Cli\Concerns;
 
 use function getenv;
+
+use Illuminate\Support\Str;
+
 use function is_array;
 use function json_decode;
 use function json_encode;
-use function ltrim;
 use function mb_strlen;
 
 use PhpHive\Cli\Support\Filesystem;
 
 use function preg_replace;
-use function str_contains;
-use function str_repeat;
 use function stream_context_create;
 use function strip_tags;
 use function time;
@@ -227,12 +227,12 @@ trait ChecksForUpdates
             }
 
             // Skip dev versions
-            if (str_contains($version, 'dev')) {
+            if (Str::contains($version, 'dev')) {
                 continue;
             }
 
             // Remove 'v' prefix if present
-            $cleanVersion = ltrim($version, 'v');
+            $cleanVersion = Str::ltrim($version, 'v');
 
             // Update latest if this is newer
             if ($latestVersion === null || version_compare($cleanVersion, $latestVersion, '>')) {
@@ -300,15 +300,15 @@ trait ChecksForUpdates
 
         // Display box
         echo PHP_EOL;
-        echo $yellow . $topLeft . str_repeat($horizontal, $width) . $topRight . $reset . PHP_EOL;
+        echo $yellow . $topLeft . Str::repeat($horizontal, $width) . $topRight . $reset . PHP_EOL;
 
         foreach ($lines as $line) {
             $lineLength = mb_strlen(strip_tags(preg_replace('/\e\[[0-9;]*m/', '', $line) ?? ''));
             $spacesNeeded = $width - $lineLength;
-            echo $yellow . $vertical . $reset . $line . str_repeat(' ', $spacesNeeded) . $yellow . $vertical . $reset . PHP_EOL;
+            echo $yellow . $vertical . $reset . $line . Str::repeat(' ', $spacesNeeded) . $yellow . $vertical . $reset . PHP_EOL;
         }
 
-        echo $yellow . $bottomLeft . str_repeat($horizontal, $width) . $bottomRight . $reset . PHP_EOL;
+        echo $yellow . $bottomLeft . Str::repeat($horizontal, $width) . $bottomRight . $reset . PHP_EOL;
         echo PHP_EOL;
     }
 }

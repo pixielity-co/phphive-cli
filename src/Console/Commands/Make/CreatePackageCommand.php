@@ -225,7 +225,7 @@ final class CreatePackageCommand extends BaseMakeCommand
 
             // Step 3: Select and validate package type
             $packageType = $this->selectPackageType($input, $isQuiet, $isJson);
-            if ($packageType === null) {
+            if (! $packageType instanceof PackageTypeInterface) {
                 return Command::FAILURE;
             }
 

@@ -30,14 +30,10 @@ final readonly class SearchSetupService
     /**
      * Create a new search setup service instance.
      *
-     * @param Docker     $docker     Docker service
-     * @param Process    $process    Process service
-     * @param Filesystem $filesystem Filesystem service
+     * @param Process $process Process service
      */
     public function __construct(
-        private Docker $docker,
         private Process $process,
-        private Filesystem $filesystem,
     ) {}
 
     /**

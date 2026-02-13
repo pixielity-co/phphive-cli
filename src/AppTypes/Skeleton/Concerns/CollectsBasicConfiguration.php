@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PhpHive\Cli\AppTypes\Skeleton\Concerns;
 
+use Illuminate\Support\Str;
 use PhpHive\Cli\Contracts\AppTypeInterface;
 use PhpHive\Cli\Enums\PhpVersion;
 
@@ -52,7 +53,7 @@ trait CollectsBasicConfiguration
     {
         // Get name from input argument if available (don't prompt if already provided)
         $name = $this->input->getArgument('name');
-        if ($name === null || trim($name) === '') {
+        if ($name === null || Str::trim($name) === '') {
             $name = $this->text(
                 label: 'Application name',
                 placeholder: 'my-app',
@@ -62,7 +63,7 @@ trait CollectsBasicConfiguration
 
         // Get description from input option if available
         $description = $this->input->getOption('description');
-        if ($description === null || trim($description) === '') {
+        if ($description === null || Str::trim($description) === '') {
             $description = $this->text(
                 label: 'Application description',
                 placeholder: 'A minimal PHP application',

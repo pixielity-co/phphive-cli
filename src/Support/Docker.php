@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PhpHive\Cli\Support;
 
+use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
@@ -98,7 +99,7 @@ final readonly class Docker
 
         $output = $this->process->run(['docker', '--version']);
 
-        return trim($output);
+        return Str::trim($output);
     }
 
     /**
@@ -119,7 +120,7 @@ final readonly class Docker
             $output = $this->process->run(['docker-compose', '--version']);
         }
 
-        return trim($output);
+        return Str::trim($output);
     }
 
     /**

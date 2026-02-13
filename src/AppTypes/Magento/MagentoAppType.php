@@ -248,7 +248,7 @@ class MagentoAppType extends AbstractAppType
         // Monorepo packages support
         $commands[] = 'composer config repositories.monorepo-packages path "../../../packages/*"';
         $registrationGloblistPath = 'app/etc/registration_globlist.php';
-        $commands[] = "php -r \"\\\$file = '{$registrationGloblistPath}'; \\\$content = file_get_contents(\\\$file); \\\$content = str_replace('];', \"    '../../../packages/*/registration.php',\\n];\", \\\$content); file_put_contents(\\\$file, \\\$content);\"";
+        $commands[] = "php -r \"use Illuminate\\\\Support\\\\Str; \\\$file = '{$registrationGloblistPath}'; \\\$content = file_get_contents(\\\$file); \\\$content = Str::replace('];', \\\"    '../../../packages/*/registration.php',\\n];\\\", \\\$content); file_put_contents(\\\$file, \\\$content);\"";
 
         // Install Laravel Pint
         $commands[] = 'composer require laravel/pint --dev --no-interaction';

@@ -505,7 +505,7 @@ abstract class AbstractAppType implements AppTypeInterface
     {
         // Capitalize first letter of each word (delimited by - or _)
         // Then remove the delimiters to create PascalCase
-        return str_replace(['-', '_'], '', ucwords($name, '-_'));
+        return Str::replace(['-', '_'], '', Str::ucfirst(Str::lower(Str::replace(['-', '_'], ' ', $name))));
     }
 
     /**

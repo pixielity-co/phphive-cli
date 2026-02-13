@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PhpHive\Cli\Console\Commands\Make;
 
 use Exception;
+use Illuminate\Support\Str;
 use PhpHive\Cli\Console\Commands\BaseCommand;
 use PhpHive\Cli\Support\Emitter;
 use PhpHive\Cli\Support\PreflightResult;
@@ -243,14 +244,14 @@ abstract class BaseMakeCommand extends BaseCommand
     {
         if ($this->filesystem()->isDirectory($path)) {
             if (! $isQuiet && ! $isJson) {
-                $this->warning(ucfirst($type) . " '{$name}' already exists");
+                $this->warning(Str::ucfirst($type) . " '{$name}' already exists");
             }
 
             return true;
         }
 
         if (! $isQuiet && ! $isJson) {
-            $this->info('✓ ' . ucfirst($type) . " name '{$name}' is available");
+            $this->info('✓ ' . Str::ucfirst($type) . " name '{$name}' is available");
         }
 
         return false;
@@ -316,7 +317,7 @@ abstract class BaseMakeCommand extends BaseCommand
             ]);
         } elseif (! $isQuiet) {
             $this->line('');
-            $this->outro('🎉 ' . ucfirst($type) . " '{$name}' created successfully!");
+            $this->outro('🎉 ' . Str::ucfirst($type) . " '{$name}' created successfully!");
             $this->line('');
             $this->comment('Next steps:');
 
@@ -407,9 +408,9 @@ abstract class BaseMakeCommand extends BaseCommand
             if (! $isQuiet && ! $isJson) {
                 $this->info('✓ Cleanup complete');
             }
-        } catch (Exception $e) {
+        } catch (Exception $exception) {
             if (! $isQuiet && ! $isJson) {
-                $this->error("Failed to remove directory: {$e->getMessage()}");
+                $this->error("Failed to remove directory: {$exception->getMessage()}");
                 $this->comment("You may need to manually remove: {$workspacePath}");
             }
         }

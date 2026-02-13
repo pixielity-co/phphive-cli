@@ -5,14 +5,15 @@ declare(strict_types=1);
 namespace PhpHive\Cli\Concerns;
 
 use function error_log;
+
+use Illuminate\Support\Str;
+
 use function is_subclass_of;
 
 use PhpHive\Cli\Support\Filesystem;
 use PhpHive\Cli\Support\Reflection;
 
 use function sprintf;
-use function str_contains;
-use function str_replace;
 
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -90,20 +91,20 @@ trait HasDiscovery
         // Process each file in the directory
         foreach ($files as $file) {
             // Only process PHP files
-            if (! str_contains((string) $file, '.php')) {
+            if (! Str::contains((string) $file, '.php')) {
                 continue;
             }
 
             // Skip base command classes (not meant to be registered)
-            if (str_contains((string) $file, 'BaseCommand')) {
+            if (Str::contains((string) $file, 'BaseCommand')) {
                 continue;
             }
 
             // Build fully qualified class name from file path
             // Example: Command/Install/InstallCommand.php
             //       -> \PhpHive\Cli\Command\Install\InstallCommand
-            $classPath = str_replace('.php', '', $file);
-            $classPath = str_replace('/', '\\', $classPath);
+            $classPath = Str::replace('.php', '', $file);
+            $classPath = Str::replace('/', '\\', $classPath);
             $className = "{$namespace}\\{$classPath}";
 
             // Validate and register the command

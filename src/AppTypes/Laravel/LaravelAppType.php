@@ -199,10 +199,11 @@ class LaravelAppType extends AbstractAppType
         // Update modules.php config to include packages directory for monorepo support
         $commands[] = <<<'PHP'
 php -r "
+use Illuminate\Support\Str;
 \$config = file_get_contents('config/modules.php');
 \$search = \"'modules' => base_path('Modules'),\";
 \$replace = \"'modules' => base_path('Modules'),\n        'packages' => base_path('../../../packages'),\";
-\$config = str_replace(\$search, \$replace, \$config);
+\$config = Str::replace(\$search, \$replace, \$config);
 file_put_contents('config/modules.php', \$config);
 echo 'Updated modules.php to include packages path\n';
 "

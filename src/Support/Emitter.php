@@ -26,10 +26,8 @@ trait Emitter
 
     /**
      * bindEvent creates a new event binding.
-     *
-     * @return void
      */
-    public function bindEvent($event, $callback, $priority = 0)
+    public function bindEvent($event, $callback, $priority = 0): void
     {
         $this->emitterEventCollection[$event][$priority][] = $callback;
         unset($this->emitterEventSorted[$event]);
@@ -37,10 +35,8 @@ trait Emitter
 
     /**
      * bindEventOnce creates a new event binding that fires once only.
-     *
-     * @return void
      */
-    public function bindEventOnce($event, $callback, $priority = 0)
+    public function bindEventOnce($event, $callback, $priority = 0): void
     {
         $this->emitterSingleEventCollection[$event][$priority][] = $callback;
         unset($this->emitterEventSorted[$event]);
@@ -48,10 +44,8 @@ trait Emitter
 
     /**
      * unbindEvent destroys an event binding.
-     *
-     * @return void
      */
-    public function unbindEvent($event = null)
+    public function unbindEvent($event = null): void
     {
         if (is_array($event)) {
             foreach ($event as $_event) {
@@ -144,6 +138,6 @@ trait Emitter
 
         krsort($combined);
 
-        return call_user_func_array('array_merge', $combined);
+        return call_user_func_array(array_merge(...), $combined);
     }
 }

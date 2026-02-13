@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace PhpHive\Cli\Services;
 
+use Illuminate\Support\Str;
+
 /**
  * Name Suggestion Service.
  *
@@ -161,7 +163,7 @@ final class NameSuggestionService
 
             // Prefer meaningful suffixes
             foreach (self::SUFFIXES as $suffix) {
-                if (str_ends_with($suggestion, "-{$suffix}")) {
+                if (Str::endsWith($suggestion, "-{$suffix}")) {
                     $score += 10;
 
                     break;

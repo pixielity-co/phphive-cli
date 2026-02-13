@@ -256,7 +256,7 @@ final readonly class QueueSetupService
             $outputPath = $appPath . '/docker-compose.yml';
             if ($this->filesystem->exists($outputPath)) {
                 $existingContent = $this->filesystem->read($outputPath);
-                if (str_contains($existingContent, 'redis:')) {
+                if (Str::contains($existingContent, 'redis:')) {
                     return true;
                 }
             }
@@ -298,7 +298,7 @@ final readonly class QueueSetupService
             $outputPath = $appPath . '/docker-compose.yml';
             if ($this->filesystem->exists($outputPath)) {
                 $existingContent = $this->filesystem->read($outputPath);
-                if (str_contains($existingContent, 'rabbitmq:')) {
+                if (Str::contains($existingContent, 'rabbitmq:')) {
                     return true;
                 }
             }

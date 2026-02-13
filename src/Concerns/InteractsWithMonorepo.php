@@ -7,6 +7,7 @@ namespace PhpHive\Cli\Concerns;
 use function dirname;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 use function json_decode;
@@ -17,10 +18,6 @@ use PhpHive\Cli\Support\Filesystem;
 use function preg_match_all;
 
 use RuntimeException;
-
-use function str_contains;
-use function str_replace;
-
 use Symfony\Component\Finder\Finder;
 
 /**
@@ -171,7 +168,7 @@ trait InteractsWithMonorepo
         // Process each workspace pattern
         foreach ($patterns as $pattern) {
             // Remove wildcard suffix (e.g., 'apps/*' -> 'apps')
-            $pattern = str_replace('/*', '', $pattern);
+            $pattern = Str::replace('/*', '', $pattern);
             $dir = $root . '/' . $pattern;
 
             if (! $this->filesystem()->isDirectory($dir)) {
@@ -207,7 +204,7 @@ trait InteractsWithMonorepo
                         'name' => $name,
                         'path' => $path,
                         // Determine type based on path (apps/ vs packages/)
-                        'type' => str_contains($path, '/apps/') ? AppTypeInterface::WORKSPACE_TYPE_APP : AppTypeInterface::WORKSPACE_TYPE_PACKAGE,
+                        'type' => Str::contains($path, '/apps/') ? AppTypeInterface::WORKSPACE_TYPE_APP : AppTypeInterface::WORKSPACE_TYPE_PACKAGE,
                         'packageName' => $packageJson['name'] ?? $name,
                         'hasComposer' => $this->filesystem()->exists($path . '/composer.json'),
                         'hasPackageJson' => true,
