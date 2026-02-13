@@ -54,7 +54,7 @@ final class App
      * Stores the singleton Application instance that this facade provides
      * access to. Set via setInstance() during application bootstrap.
      */
-    private static ?Application $instance = null;
+    private static ?Application $application = null;
 
     /**
      * Handle dynamic static method calls.
@@ -99,11 +99,11 @@ final class App
      * Application instance with the facade. Once set, all static methods
      * on this facade will delegate to this instance.
      *
-     * @param Application $app The application instance to register
+     * @param Application $application The application instance to register
      */
-    public static function setInstance(Application $app): void
+    public static function setInstance(Application $application): void
     {
-        self::$instance = $app;
+        self::$application = $application;
     }
 
     /**
@@ -116,11 +116,11 @@ final class App
      */
     public static function getInstance(): Application
     {
-        if (self::$instance === null) {
-            self::$instance = Application::make();
+        if (! self::$application instanceof Application) {
+            self::$application = Application::make();
         }
 
-        return self::$instance;
+        return self::$application;
     }
 
     /**

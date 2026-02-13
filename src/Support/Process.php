@@ -40,6 +40,44 @@ final class Process
     }
 
     /**
+     * Check if TTY mode is supported on the current system.
+     *
+     * TTY (teletypewriter) mode enables interactive features like colors,
+     * progress bars, and real-time output. This is typically available
+     * when running in a terminal but not in CI/CD environments.
+     *
+     * @return bool True if TTY is supported, false otherwise
+     */
+    public static function isTtySupported(): bool
+    {
+        return SymfonyProcess::isTtySupported();
+    }
+
+    /**
+     * Create a Process from a shell command line.
+     *
+     * This method creates a Process instance from a shell command string
+     * instead of an array. Useful for simple commands or when you need
+     * shell features like pipes, redirects, or environment variable expansion.
+     *
+     * Note: Using array format is generally preferred for security and
+     * reliability, but this method is useful for compatibility with
+     * existing shell commands.
+     *
+     * @param  string         $command The shell command line
+     * @param  string|null    $cwd     Working directory (null = current directory)
+     * @param  int|null       $timeout Timeout in seconds (null = default timeout)
+     * @return SymfonyProcess The process instance
+     */
+    public static function fromShellCommandline(string $command, ?string $cwd = null, ?int $timeout = null): SymfonyProcess
+    {
+        $process = SymfonyProcess::fromShellCommandline($command, $cwd);
+        $process->setTimeout($timeout ?? self::DEFAULT_TIMEOUT);
+
+        return $process;
+    }
+
+    /**
      * Run a command and return its output.
      *
      * This method executes a command synchronously and returns the output
