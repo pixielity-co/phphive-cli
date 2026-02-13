@@ -383,169 +383,33 @@ final class CreateAppCommand extends BaseMakeCommand
         $appCreated = false;
 
         // Register signal handlers and subscribe to cleanup events
-        $this->registerSignalHandlers();
-        $this->bindEvent('signal.interrupt', function () use (&$appPath, &$appCreated, $isQuiet, $isJson): void {
-            if (! $isQuiet && ! $isJson) {
-                $this->line('');
-                $this->warning('Operation cancelled by user.');
-            }
-
-            if ($appCreated && $appPath !== null) {
-                if (! $isQuiet && ! $isJson) {
-                    $this->warning('Cleaning up...');
-                }
-                $this->cleanupFailedWorkspace($appPath, $isQuiet, $isJson);
-            }
-        });
-        $this->bindEvent('signal.terminate', function () use (&$appPath, &$appCreated, $isQuiet, $isJson): void {
-            if (! $isQuiet && ! $isJson) {
-                $this->line('');
-                $this->warning('Operation terminated.');
-            }
-
-            if ($appCreated && $appPath !== null) {
-                if (! $isQuiet && ! $isJson) {
-                    $this->warning('Cleaning up...');
-                }
-                $this->cleanupFailedWorkspace($appPath, $isQuiet, $isJson);
-            }
-        });
+        $this->setupCleanupHandlers($appPath, $appCreated, $isQuiet, $isJson);
 
         try {
-            // Display intro banner (skip in quiet/json mode)
-            // Step 1: Run preflight checks
-            if (! $isQuiet && ! $isJson) {
-                $this->intro('Application Creation');
-                $this->info('Running environment checks...');
-            }
-            $preflightResult = $this->runPreflightChecks($isQuiet, $isJson);
-
-            if ($preflightResult->failed()) {
-                $this->displayPreflightErrors($preflightResult, $isQuiet, $isJson);
-
+            // Step 1: Display intro and run preflight checks
+            $this->displayIntro($isQuiet, $isJson);
+            if (! $this->checkEnvironment($isQuiet, $isJson)) {
                 return Command::FAILURE;
             }
 
-            if (! $isQuiet && ! $isJson) {
-                $this->line('');
-            }
-
-            // Step 2: Get and validate application name with smart suggestions
+            // Step 2: Get and validate application name
             $name = $this->getValidatedAppName($input, $isQuiet, $isJson);
 
-            // Step 3: APP TYPE SELECTION
-            $typeOption = $input->getOption('type');
-            if ($typeOption !== null && $typeOption !== '') {
-                $appTypeId = $typeOption;
-
-                // Validate the provided app type
-                if (! $this->appTypeFactory()->isValid($appTypeId)) {
-                    $errorMsg = "Invalid app type: {$appTypeId}";
-                    if ($isJson) {
-                        $this->outputJson([
-                            'success' => false,
-                            'error' => $errorMsg,
-                            'available_types' => $this->appTypeFactory()->getIdentifiers(),
-                        ]);
-                    } else {
-                        $this->error($errorMsg);
-                        $this->line('Available types: ' . implode(', ', $this->appTypeFactory()->getIdentifiers()));
-                    }
-
-                    return Command::FAILURE;
-                }
-            } else {
-                // Prompt user to select app type
-                $appTypeId = $this->select(
-                    label: 'Select application type',
-                    options: AppTypeFactory::choices()
-                );
+            // Step 3: Select and validate app type
+            $appType = $this->selectAppType($input, $isQuiet, $isJson);
+            if ($appType === null) {
+                return Command::FAILURE;
             }
 
-            // Create the app type instance
-            $appType = $this->appTypeFactory()->create($appTypeId);
-            // Step 4: CONFIGURATION COLLECTION
-            if (! $isQuiet && ! $isJson) {
-                $this->comment("Selected: {$appType->getName()}");
-                $this->line('');
-                $this->comment('Configuration:');
-            }
+            // Step 4: Collect configuration
+            $config = $this->collectAppConfiguration($input, $output, $name, $appType, $isQuiet, $isJson);
 
-            // Set name in input so app types don't prompt for it
-            // (they should read from input argument if available)
-            $input->setArgument('name', $name);
-
-            // Set description in input if provided via option
-            $descriptionOption = $input->getOption('description');
-            if ($descriptionOption !== null && $descriptionOption !== '') {
-                $input->setOption('description', $descriptionOption);
-            }
-
-            $config = $appType->collectConfiguration($input, $output);
-
-            // Ensure name is set from command argument (override any prompts)
-            $config[AppTypeInterface::CONFIG_NAME] = $name;
-
-            // Set description from option if provided, otherwise use collected value or default
-            if ($descriptionOption !== null && $descriptionOption !== '') {
-                $config[AppTypeInterface::CONFIG_DESCRIPTION] = $descriptionOption;
-            } elseif (! isset($config[AppTypeInterface::CONFIG_DESCRIPTION]) || $config[AppTypeInterface::CONFIG_DESCRIPTION] === '') {
-                $config[AppTypeInterface::CONFIG_DESCRIPTION] = "A {$appType->getName()} application";
-            }
-
-            // Step 5: Execute application creation with progress feedback
+            // Step 5: Execute application creation
             $root = $this->getMonorepoRoot();
             $appPath = "{$root}/apps/{$name}";
-            $appsDir = "{$root}/apps";
-            $filesystem = $this->filesystem();
-
-            // Mark that app directory will be created
             $appCreated = true;
 
-            $steps = [
-                'Installing application framework' => fn (): bool => $this->runInstallCommand($appType, $config, $appsDir, $isVerbose),
-                'Setting up infrastructure' => fn (): bool => $this->setupInfrastructure($appType, $appPath, $name, $isVerbose),
-                'Processing configuration files' => fn () => $this->processStubs($appType, $config, $appPath, $filesystem),
-                'Running additional setup tasks' => fn (): bool => $this->runPostInstallCommands($appType, $config, $appPath, $isVerbose),
-            ];
-
-            if (! $isQuiet && ! $isJson) {
-                $this->line('');
-            }
-
-            $startTime = microtime(true);
-            foreach ($steps as $message => $step) {
-                $stepStartTime = microtime(true);
-
-                if ($isQuiet || $isJson) {
-                    // No spinner in quiet/json mode
-                    $result = $step();
-                } else {
-                    $result = $this->spin($step, "{$message}...");
-                }
-
-                if ($result === false) {
-                    if ($isJson) {
-                        $this->outputJson([
-                            'success' => false,
-                            'error' => "Failed: {$message}",
-                            'app_name' => $name,
-                            'app_type' => $appType->getName(),
-                        ]);
-                    }
-
-                    return Command::FAILURE;
-                }
-
-                $stepDuration = microtime(true) - $stepStartTime;
-
-                if (! $isQuiet && ! $isJson) {
-                    $this->comment("✓ {$message} complete");
-                } elseif ($isVerbose && ! $isJson) {
-                    $this->comment(sprintf('✓ %s complete (%.2fs)', $message, $stepDuration));
-                }
-            }
-            $totalDuration = microtime(true) - $startTime;
+            $totalDuration = $this->executeCreationSteps($appType, $config, $name, $appPath, $isQuiet, $isJson, $isVerbose);
 
             // Step 6: Display success summary
             $this->displaySuccessMessage(
@@ -565,28 +429,268 @@ final class CreateAppCommand extends BaseMakeCommand
 
             return Command::SUCCESS;
         } catch (Exception $exception) {
-            // Cleanup on failure or cancellation
-            if ($appCreated && $appPath !== null) {
-                if (! $isQuiet && ! $isJson) {
-                    $this->line('');
-                    $this->warning('Cleaning up failed application...');
-                }
+            return $this->handleFailure($exception, $appPath, $appCreated, $isQuiet, $isJson);
+        }
+    }
 
-                $this->cleanupFailedWorkspace($appPath, $isQuiet, $isJson);
+    /**
+     * Setup cleanup handlers for signal interruption.
+     */
+    private function setupCleanupHandlers(?string &$appPath, bool &$appCreated, bool $isQuiet, bool $isJson): void
+    {
+        $this->registerSignalHandlers();
+
+        $this->bindEvent('signal.interrupt', function () use (&$appPath, &$appCreated, $isQuiet, $isJson): void {
+            if (! $isQuiet && ! $isJson) {
+                $this->line('');
+                $this->warning('Operation cancelled by user.');
             }
 
-            // Display error message
+            if ($appCreated && $appPath !== null) {
+                if (! $isQuiet && ! $isJson) {
+                    $this->warning('Cleaning up...');
+                }
+                $this->cleanupFailedWorkspace($appPath, $isQuiet, $isJson);
+            }
+        });
+
+        $this->bindEvent('signal.terminate', function () use (&$appPath, &$appCreated, $isQuiet, $isJson): void {
+            if (! $isQuiet && ! $isJson) {
+                $this->line('');
+                $this->warning('Operation terminated.');
+            }
+
+            if ($appCreated && $appPath !== null) {
+                if (! $isQuiet && ! $isJson) {
+                    $this->warning('Cleaning up...');
+                }
+                $this->cleanupFailedWorkspace($appPath, $isQuiet, $isJson);
+            }
+        });
+    }
+
+    /**
+     * Display intro banner.
+     */
+    private function displayIntro(bool $isQuiet, bool $isJson): void
+    {
+        if (! $isQuiet && ! $isJson) {
+            $this->intro('Application Creation');
+            $this->info('Running environment checks...');
+        }
+    }
+
+    /**
+     * Check environment with preflight checks.
+     */
+    private function checkEnvironment(bool $isQuiet, bool $isJson): bool
+    {
+        $preflightResult = $this->runPreflightChecks($isQuiet, $isJson);
+
+        if ($preflightResult->failed()) {
+            $this->displayPreflightErrors($preflightResult, $isQuiet, $isJson);
+
+            return false;
+        }
+
+        if (! $isQuiet && ! $isJson) {
+            $this->line('');
+        }
+
+        return true;
+    }
+
+    /**
+     * Select and validate app type.
+     */
+    private function selectAppType(InputInterface $input, bool $isQuiet, bool $isJson): ?AppTypeInterface
+    {
+        $typeOption = $input->getOption('type');
+
+        if ($typeOption !== null && $typeOption !== '') {
+            // Validate the provided app type
+            if (! $this->appTypeFactory()->isValid($typeOption)) {
+                $errorMsg = "Invalid app type: {$typeOption}";
+                if ($isJson) {
+                    $this->outputJson([
+                        'success' => false,
+                        'error' => $errorMsg,
+                        'available_types' => $this->appTypeFactory()->getIdentifiers(),
+                    ]);
+                } else {
+                    $this->error($errorMsg);
+                    $this->line('Available types: ' . implode(', ', $this->appTypeFactory()->getIdentifiers()));
+                }
+
+                return null;
+            }
+            $appTypeId = $typeOption;
+        } else {
+            // Prompt user to select app type
+            $appTypeId = $this->select(
+                label: 'Select application type',
+                options: AppTypeFactory::choices()
+            );
+        }
+
+        return $this->appTypeFactory()->create($appTypeId);
+    }
+
+    /**
+     * Collect application configuration.
+     *
+     * @return array<string, mixed>
+     */
+    private function collectAppConfiguration(
+        InputInterface $input,
+        OutputInterface $output,
+        string $name,
+        AppTypeInterface $appType,
+        bool $isQuiet,
+        bool $isJson
+    ): array {
+        if (! $isQuiet && ! $isJson) {
+            $this->comment("Selected: {$appType->getName()}");
+            $this->line('');
+            $this->comment('Configuration:');
+        }
+
+        // Set name in input so app types don't prompt for it
+        $input->setArgument('name', $name);
+
+        // Set description in input if provided via option
+        $descriptionOption = $input->getOption('description');
+        if ($descriptionOption !== null && $descriptionOption !== '') {
+            $input->setOption('description', $descriptionOption);
+        }
+
+        $config = $appType->collectConfiguration($input, $output);
+
+        // Ensure name is set from command argument (override any prompts)
+        $config[AppTypeInterface::CONFIG_NAME] = $name;
+
+        // Set description from option if provided, otherwise use collected value or default
+        if ($descriptionOption !== null && $descriptionOption !== '') {
+            $config[AppTypeInterface::CONFIG_DESCRIPTION] = $descriptionOption;
+        } elseif (! isset($config[AppTypeInterface::CONFIG_DESCRIPTION]) || $config[AppTypeInterface::CONFIG_DESCRIPTION] === '') {
+            $config[AppTypeInterface::CONFIG_DESCRIPTION] = "A {$appType->getName()} application";
+        }
+
+        return $config;
+    }
+
+    /**
+     * Execute creation steps with progress feedback.
+     *
+     * @param  array<string, mixed> $config
+     * @return float                Total duration in seconds
+     */
+    private function executeCreationSteps(
+        AppTypeInterface $appType,
+        array $config,
+        string $name,
+        string $appPath,
+        bool $isQuiet,
+        bool $isJson,
+        bool $isVerbose
+    ): float {
+        $root = $this->getMonorepoRoot();
+        $appsDir = "{$root}/apps";
+        $filesystem = $this->filesystem();
+
+        $steps = [
+            'Installing application framework' => fn (): bool => $this->runInstallCommand($appType, $config, $appsDir, $isVerbose),
+            'Setting up infrastructure' => fn (): bool => $this->setupInfrastructure($appType, $appPath, $name, $isVerbose),
+            'Processing configuration files' => fn () => $this->processStubs($appType, $config, $appPath, $filesystem),
+            'Running additional setup tasks' => fn (): bool => $this->runPostInstallCommands($appType, $config, $appPath, $isVerbose),
+        ];
+
+        if (! $isQuiet && ! $isJson) {
+            $this->line('');
+        }
+
+        $startTime = microtime(true);
+
+        foreach ($steps as $message => $step) {
+            $this->executeStep($step, $message, $name, $appType, $isQuiet, $isJson, $isVerbose);
+        }
+
+        return microtime(true) - $startTime;
+    }
+
+    /**
+     * Execute a single creation step.
+     */
+    private function executeStep(
+        callable $step,
+        string $message,
+        string $name,
+        AppTypeInterface $appType,
+        bool $isQuiet,
+        bool $isJson,
+        bool $isVerbose
+    ): void {
+        $stepStartTime = microtime(true);
+
+        if ($isQuiet || $isJson) {
+            $result = $step();
+        } else {
+            $result = $this->spin($step, "{$message}...");
+        }
+
+        if ($result === false) {
             if ($isJson) {
                 $this->outputJson([
                     'success' => false,
-                    'error' => $exception->getMessage(),
+                    'error' => "Failed: {$message}",
+                    'app_name' => $name,
+                    'app_type' => $appType->getName(),
                 ]);
-            } else {
-                $this->error('Application creation failed: ' . $exception->getMessage());
             }
 
-            return Command::FAILURE;
+            throw new Exception("Failed: {$message}");
         }
+
+        $stepDuration = microtime(true) - $stepStartTime;
+
+        if (! $isQuiet && ! $isJson) {
+            $this->comment("✓ {$message} complete");
+        } elseif ($isVerbose && ! $isJson) {
+            $this->comment(sprintf('✓ %s complete (%.2fs)', $message, $stepDuration));
+        }
+    }
+
+    /**
+     * Handle command failure.
+     */
+    private function handleFailure(
+        Exception $exception,
+        ?string $appPath,
+        bool $appCreated,
+        bool $isQuiet,
+        bool $isJson
+    ): int {
+        // Cleanup on failure or cancellation
+        if ($appCreated && $appPath !== null) {
+            if (! $isQuiet && ! $isJson) {
+                $this->line('');
+                $this->warning('Cleaning up failed application...');
+            }
+
+            $this->cleanupFailedWorkspace($appPath, $isQuiet, $isJson);
+        }
+
+        // Display error message
+        if ($isJson) {
+            $this->outputJson([
+                'success' => false,
+                'error' => $exception->getMessage(),
+            ]);
+        } else {
+            $this->error('Application creation failed: ' . $exception->getMessage());
+        }
+
+        return Command::FAILURE;
     }
 
     /**

@@ -211,165 +211,32 @@ final class CreatePackageCommand extends BaseMakeCommand
         $packageCreated = false;
 
         // Register signal handlers and subscribe to cleanup events
-        $this->registerSignalHandlers();
-        $this->bindEvent('signal.interrupt', function () use (&$packagePath, &$packageCreated, $isQuiet, $isJson): void {
-            if (! $isQuiet && ! $isJson) {
-                $this->line('');
-                $this->warning('Operation cancelled by user.');
-            }
-
-            if ($packageCreated && $packagePath !== null) {
-                if (! $isQuiet && ! $isJson) {
-                    $this->warning('Cleaning up...');
-                }
-                $this->cleanupFailedWorkspace($packagePath, $isQuiet, $isJson);
-            }
-        });
-        $this->bindEvent('signal.terminate', function () use (&$packagePath, &$packageCreated, $isQuiet, $isJson): void {
-            if (! $isQuiet && ! $isJson) {
-                $this->line('');
-                $this->warning('Operation terminated.');
-            }
-
-            if ($packageCreated && $packagePath !== null) {
-                if (! $isQuiet && ! $isJson) {
-                    $this->warning('Cleaning up...');
-                }
-                $this->cleanupFailedWorkspace($packagePath, $isQuiet, $isJson);
-            }
-        });
+        $this->setupCleanupHandlers($packagePath, $packageCreated, $isQuiet, $isJson);
 
         try {
-            // Display intro banner (skip in quiet/json mode)
-            // Step 1: Run preflight checks
-            if (! $isQuiet && ! $isJson) {
-                $this->intro('Package Creation');
-                $this->info('Running environment checks...');
-            }
-            $preflightResult = $this->runPreflightChecks($isQuiet, $isJson);
-
-            if ($preflightResult->failed()) {
-                $this->displayPreflightErrors($preflightResult, $isQuiet, $isJson);
-
+            // Step 1: Display intro and run preflight checks
+            $this->displayIntro($isQuiet, $isJson);
+            if (! $this->checkEnvironment($isQuiet, $isJson)) {
                 return Command::FAILURE;
             }
 
-            if (! $isQuiet && ! $isJson) {
-                $this->line('');
-            }
-
-            // Step 2: Get and validate package name with smart suggestions
+            // Step 2: Get and validate package name
             $name = $this->getValidatedPackageName($input, $isQuiet, $isJson);
 
-            // Step 3: Determine package type (prompt if not provided)
-            $type = $input->getOption('type');
-            $packageTypeFactory = $this->packageTypeFactory();
-
-            if ($type === null) {
-                $type = $this->select(
-                    label: 'Select package type',
-                    options: $packageTypeFactory->getTypeOptions(),
-                    default: PackageType::SKELETON->value
-                );
-            }
-
-            // Validate and create package type instance
-            try {
-                $packageType = $packageTypeFactory->create($type);
-            } catch (InvalidArgumentException $invalidArgumentException) {
-                if ($isJson) {
-                    $this->outputJson([
-                        'success' => false,
-                        'error' => $invalidArgumentException->getMessage(),
-                    ]);
-                } else {
-                    $this->error($invalidArgumentException->getMessage());
-                }
-
+            // Step 3: Select and validate package type
+            $packageType = $this->selectPackageType($input, $isQuiet, $isJson);
+            if ($packageType === null) {
                 return Command::FAILURE;
             }
 
-            if (! $isQuiet && ! $isJson) {
-                $this->line('');
-                $this->comment("Selected: {$packageType->getDisplayName()}");
-                $this->line('');
-            }
-
-            // Step 4: Execute package creation steps with progress feedback
+            // Step 4: Execute package creation
             $root = $this->getMonorepoRoot();
             $packagePath = "{$root}/packages/{$name}";
-
-            // Mark that package directory will be created
             $packageCreated = true;
 
-            $steps = [
-                'Checking name availability' => fn (): bool => $this->checkNameAvailability($name, $packagePath),
-                'Creating package structure' => fn (): bool => $this->createPackageStructure($packagePath),
-                'Generating configuration files' => fn (): bool => $this->generateConfigFiles($input, $name, $type, $packagePath, $packageType, $isVerbose),
-            ];
+            $totalDuration = $this->executeCreationSteps($input, $name, $packageType, $packagePath, $isQuiet, $isJson, $isVerbose);
 
-            $startTime = microtime(true);
-            foreach ($steps as $message => $step) {
-                $stepStartTime = microtime(true);
-
-                if ($isQuiet || $isJson) {
-                    // No spinner in quiet/json mode
-                    $result = $step();
-                } else {
-                    $result = $this->spin($step, "{$message}...");
-                }
-
-                if ($result === false) {
-                    if ($isJson) {
-                        $this->outputJson([
-                            'success' => false,
-                            'error' => "Failed: {$message}",
-                            'package_name' => $name,
-                            'package_type' => $type,
-                        ]);
-                    }
-
-                    return Command::FAILURE;
-                }
-
-                $stepDuration = microtime(true) - $stepStartTime;
-
-                if (! $isQuiet && ! $isJson) {
-                    $this->comment("✓ {$message} complete");
-                } elseif ($isVerbose && ! $isJson) {
-                    $this->comment(sprintf('✓ %s complete (%.2fs)', $message, $stepDuration));
-                }
-            }
-
-            // Step 5: Install dependencies with progress feedback
-            if (! $isQuiet && ! $isJson) {
-                $this->line('');
-            }
-
-            $installStartTime = microtime(true);
-            if ($isQuiet || $isJson) {
-                $installResult = $this->installDependencies($packageType, $packagePath);
-            } else {
-                $installResult = $this->spin(
-                    fn (): bool => $this->installDependencies($packageType, $packagePath),
-                    'Installing dependencies...'
-                );
-            }
-            $installDuration = microtime(true) - $installStartTime;
-
-            if ($installResult) {
-                if (! $isQuiet && ! $isJson) {
-                    $this->comment('✓ Dependencies installed successfully');
-                } elseif ($isVerbose && ! $isJson) {
-                    $this->comment(sprintf('✓ Dependencies installed successfully (%.2fs)', $installDuration));
-                }
-            } elseif (! $isQuiet && ! $isJson) {
-                $this->warning('⚠ Dependency installation had issues (you may need to run composer install manually)');
-            }
-
-            $totalDuration = microtime(true) - $startTime;
-
-            // Step 6: Display success summary
+            // Step 5: Display success summary
             $this->displaySuccessMessage(
                 'package',
                 $name,
@@ -387,28 +254,263 @@ final class CreatePackageCommand extends BaseMakeCommand
 
             return Command::SUCCESS;
         } catch (Exception $exception) {
-            // Cleanup on failure or cancellation
-            if ($packageCreated && $packagePath !== null) {
-                if (! $isQuiet && ! $isJson) {
-                    $this->line('');
-                    $this->warning('Cleaning up failed package...');
-                }
+            return $this->handleFailure($exception, $packagePath, $packageCreated, $isQuiet, $isJson);
+        }
+    }
 
-                $this->cleanupFailedWorkspace($packagePath, $isQuiet, $isJson);
+    /**
+     * Setup cleanup handlers for signal interruption.
+     */
+    private function setupCleanupHandlers(?string &$packagePath, bool &$packageCreated, bool $isQuiet, bool $isJson): void
+    {
+        $this->registerSignalHandlers();
+
+        $this->bindEvent('signal.interrupt', function () use (&$packagePath, &$packageCreated, $isQuiet, $isJson): void {
+            if (! $isQuiet && ! $isJson) {
+                $this->line('');
+                $this->warning('Operation cancelled by user.');
             }
 
-            // Display error message
+            if ($packageCreated && $packagePath !== null) {
+                if (! $isQuiet && ! $isJson) {
+                    $this->warning('Cleaning up...');
+                }
+                $this->cleanupFailedWorkspace($packagePath, $isQuiet, $isJson);
+            }
+        });
+
+        $this->bindEvent('signal.terminate', function () use (&$packagePath, &$packageCreated, $isQuiet, $isJson): void {
+            if (! $isQuiet && ! $isJson) {
+                $this->line('');
+                $this->warning('Operation terminated.');
+            }
+
+            if ($packageCreated && $packagePath !== null) {
+                if (! $isQuiet && ! $isJson) {
+                    $this->warning('Cleaning up...');
+                }
+                $this->cleanupFailedWorkspace($packagePath, $isQuiet, $isJson);
+            }
+        });
+    }
+
+    /**
+     * Display intro banner.
+     */
+    private function displayIntro(bool $isQuiet, bool $isJson): void
+    {
+        if (! $isQuiet && ! $isJson) {
+            $this->intro('Package Creation');
+            $this->info('Running environment checks...');
+        }
+    }
+
+    /**
+     * Check environment with preflight checks.
+     */
+    private function checkEnvironment(bool $isQuiet, bool $isJson): bool
+    {
+        $preflightResult = $this->runPreflightChecks($isQuiet, $isJson);
+
+        if ($preflightResult->failed()) {
+            $this->displayPreflightErrors($preflightResult, $isQuiet, $isJson);
+
+            return false;
+        }
+
+        if (! $isQuiet && ! $isJson) {
+            $this->line('');
+        }
+
+        return true;
+    }
+
+    /**
+     * Select and validate package type.
+     */
+    private function selectPackageType(InputInterface $input, bool $isQuiet, bool $isJson): ?PackageTypeInterface
+    {
+        $type = $input->getOption('type');
+        $packageTypeFactory = $this->packageTypeFactory();
+
+        if ($type === null) {
+            $type = $this->select(
+                label: 'Select package type',
+                options: $packageTypeFactory->getTypeOptions(),
+                default: PackageType::SKELETON->value
+            );
+        }
+
+        // Validate and create package type instance
+        try {
+            $packageType = $packageTypeFactory->create($type);
+        } catch (InvalidArgumentException $invalidArgumentException) {
             if ($isJson) {
                 $this->outputJson([
                     'success' => false,
-                    'error' => $exception->getMessage(),
+                    'error' => $invalidArgumentException->getMessage(),
                 ]);
             } else {
-                $this->error('Package creation failed: ' . $exception->getMessage());
+                $this->error($invalidArgumentException->getMessage());
             }
 
-            return Command::FAILURE;
+            return null;
         }
+
+        if (! $isQuiet && ! $isJson) {
+            $this->line('');
+            $this->comment("Selected: {$packageType->getDisplayName()}");
+            $this->line('');
+        }
+
+        return $packageType;
+    }
+
+    /**
+     * Execute creation steps with progress feedback.
+     *
+     * @return float Total duration in seconds
+     */
+    private function executeCreationSteps(
+        InputInterface $input,
+        string $name,
+        PackageTypeInterface $packageType,
+        string $packagePath,
+        bool $isQuiet,
+        bool $isJson,
+        bool $isVerbose
+    ): float {
+        $type = $input->getOption('type') ?? PackageType::SKELETON->value;
+
+        $steps = [
+            'Checking name availability' => fn (): bool => $this->checkNameAvailability($name, $packagePath),
+            'Creating package structure' => fn (): bool => $this->createPackageStructure($packagePath),
+            'Generating configuration files' => fn (): bool => $this->generateConfigFiles($input, $name, $type, $packagePath, $packageType, $isVerbose),
+        ];
+
+        $startTime = microtime(true);
+
+        foreach ($steps as $message => $step) {
+            $this->executeStep($step, $message, $name, $type, $isQuiet, $isJson, $isVerbose);
+        }
+
+        // Install dependencies
+        if (! $isQuiet && ! $isJson) {
+            $this->line('');
+        }
+
+        $this->installPackageDependencies($packageType, $packagePath, $isQuiet, $isJson, $isVerbose);
+
+        return microtime(true) - $startTime;
+    }
+
+    /**
+     * Execute a single creation step.
+     */
+    private function executeStep(
+        callable $step,
+        string $message,
+        string $name,
+        string $type,
+        bool $isQuiet,
+        bool $isJson,
+        bool $isVerbose
+    ): void {
+        $stepStartTime = microtime(true);
+
+        if ($isQuiet || $isJson) {
+            $result = $step();
+        } else {
+            $result = $this->spin($step, "{$message}...");
+        }
+
+        if ($result === false) {
+            if ($isJson) {
+                $this->outputJson([
+                    'success' => false,
+                    'error' => "Failed: {$message}",
+                    'package_name' => $name,
+                    'package_type' => $type,
+                ]);
+            }
+
+            throw new Exception("Failed: {$message}");
+        }
+
+        $stepDuration = microtime(true) - $stepStartTime;
+
+        if (! $isQuiet && ! $isJson) {
+            $this->comment("✓ {$message} complete");
+        } elseif ($isVerbose && ! $isJson) {
+            $this->comment(sprintf('✓ %s complete (%.2fs)', $message, $stepDuration));
+        }
+    }
+
+    /**
+     * Install package dependencies.
+     */
+    private function installPackageDependencies(
+        PackageTypeInterface $packageType,
+        string $packagePath,
+        bool $isQuiet,
+        bool $isJson,
+        bool $isVerbose
+    ): void {
+        $installStartTime = microtime(true);
+
+        if ($isQuiet || $isJson) {
+            $installResult = $this->installDependencies($packageType, $packagePath);
+        } else {
+            $installResult = $this->spin(
+                fn (): bool => $this->installDependencies($packageType, $packagePath),
+                'Installing dependencies...'
+            );
+        }
+
+        $installDuration = microtime(true) - $installStartTime;
+
+        if ($installResult) {
+            if (! $isQuiet && ! $isJson) {
+                $this->comment('✓ Dependencies installed successfully');
+            } elseif ($isVerbose && ! $isJson) {
+                $this->comment(sprintf('✓ Dependencies installed successfully (%.2fs)', $installDuration));
+            }
+        } elseif (! $isQuiet && ! $isJson) {
+            $this->warning('⚠ Dependency installation had issues (you may need to run composer install manually)');
+        }
+    }
+
+    /**
+     * Handle command failure.
+     */
+    private function handleFailure(
+        Exception $exception,
+        ?string $packagePath,
+        bool $packageCreated,
+        bool $isQuiet,
+        bool $isJson
+    ): int {
+        // Cleanup on failure or cancellation
+        if ($packageCreated && $packagePath !== null) {
+            if (! $isQuiet && ! $isJson) {
+                $this->line('');
+                $this->warning('Cleaning up failed package...');
+            }
+
+            $this->cleanupFailedWorkspace($packagePath, $isQuiet, $isJson);
+        }
+
+        // Display error message
+        if ($isJson) {
+            $this->outputJson([
+                'success' => false,
+                'error' => $exception->getMessage(),
+            ]);
+        } else {
+            $this->error('Package creation failed: ' . $exception->getMessage());
+        }
+
+        return Command::FAILURE;
     }
 
     /**
