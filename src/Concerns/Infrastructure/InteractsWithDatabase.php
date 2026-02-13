@@ -248,6 +248,17 @@ trait InteractsWithDatabase
         // Example: "My App!" becomes "my_app"
         $normalizedName = strtolower(preg_replace('/[^a-zA-Z0-9]/', '_', $appName) ?? $appName);
 
+        // Prompt for database port (defaults to database type's standard port)
+        // MySQL: 3306, PostgreSQL: 5432, MariaDB: 3306
+        $defaultPort = (string) ($dbTypeEnum->getDefaultPort() ?? 3306);
+        $portInput = $this->text(
+            label: 'Database port',
+            default: $defaultPort,
+            required: true,
+            hint: 'Change if the default port is already in use'
+        );
+        $port = (int) $portInput;
+
         // Prompt for database name (defaults to normalized app name)
         $dbName = $this->text(
             label: 'Database name',
@@ -270,11 +281,11 @@ trait InteractsWithDatabase
         );
 
         // Create type-safe configuration object for Docker setup
-        // Port is set to database type's default (MySQL: 3306, PostgreSQL: 5432, etc.)
+        // Port is set from user input (allows custom ports if default is in use)
         $databaseConfig = new DatabaseConfig(
             type: $dbTypeEnum,
             host: 'localhost',
-            port: $dbTypeEnum->getDefaultPort() ?? 3306,
+            port: $port,
             name: $dbName,
             user: $dbUser,
             password: $dbPassword,
