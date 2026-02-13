@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PhpHive\Cli\Concerns;
+namespace PhpHive\Cli\Concerns\Infrastructure;
 
 use PhpHive\Cli\Contracts\AppTypeInterface;
 use PhpHive\Cli\DTOs\Infrastructure\SearchConfig;
@@ -226,34 +226,27 @@ trait InteractsWithElasticsearch
      * - Username (default: elastic)
      * - Password (optional, can be empty for development)
      *
-     * In non-interactive mode, returns sensible defaults with empty password.
+     * In non-interactive mode, uses defaults (localhost:9200, user: elastic, no password).
      *
      * @return array Elasticsearch configuration array with connection details
      */
     private function setupLocalElasticsearch(): array
     {
-        // In non-interactive mode, return defaults
-        if (! $this->input->isInteractive()) {
-            return [
-                'elasticsearch_host' => 'localhost',
-                'elasticsearch_port' => 9200,
-                'elasticsearch_user' => 'elastic',
-                'elasticsearch_password' => '',
-                AppTypeInterface::CONFIG_USING_DOCKER => false,
-            ];
-        }
-
         // Prompt for Elasticsearch host
+        // In non-interactive mode, automatically uses default
         $host = $this->text('Elasticsearch host', default: 'localhost', required: true);
 
         // Prompt for Elasticsearch port (9200 is standard HTTP port)
+        // In non-interactive mode, automatically uses default
         $port = (int) $this->text('Elasticsearch port', default: '9200', required: true);
 
         // Prompt for username (elastic is the default superuser)
+        // In non-interactive mode, automatically uses default
         $user = $this->text('Elasticsearch username', default: 'elastic', required: true);
 
         // Prompt for password (optional for development environments)
         // Note: Production Elasticsearch should always have authentication enabled
+        // In non-interactive mode, returns empty string
         $password = $this->password('Elasticsearch password', required: false);
 
         // Return configuration array

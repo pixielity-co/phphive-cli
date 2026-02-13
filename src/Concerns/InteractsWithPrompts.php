@@ -56,6 +56,16 @@ use Symfony\Component\Console\Output\OutputInterface;
  * - Default values
  * - Helpful hints and placeholders
  *
+ * Non-Interactive Mode:
+ * When the --no-interaction flag is used, all prompt methods automatically
+ * return sensible defaults without prompting the user:
+ * - text(), textarea(), suggest(): Return the default parameter value
+ * - password(): Returns empty string (should use command options instead)
+ * - confirm(): Returns the default parameter value
+ * - select(): Returns the default parameter or first option
+ * - multiselect(): Returns the default parameter array
+ * - search(): Calls closure with empty string and returns first result
+ *
  * Example usage:
  * ```php
  * // Display intro/outro messages
@@ -78,6 +88,10 @@ use Symfony\Component\Console\Output\OutputInterface;
  * // Display data
  * $this->table(['Name', 'Status'], $rows);
  * ```
+ *
+ * Requirements:
+ * Classes using this trait must have a protected or public $input property
+ * of type Symfony\Component\Console\Input\InputInterface to check interactive mode.
  */
 trait InteractsWithPrompts
 {
@@ -104,6 +118,26 @@ trait InteractsWithPrompts
     protected static function getOutput(): ?OutputInterface
     {
         return self::$staticOutput;
+    }
+
+    /**
+     * Check if the command is running in interactive mode.
+     *
+     * Interactive mode means the user can be prompted for input. When the
+     * --no-interaction flag is used, this returns false and all prompt
+     * methods will return default values without prompting.
+     *
+     * This method accesses the $input property which must be available in
+     * the class using this trait. The property is typically set in the
+     * collectConfiguration() method or command's execute() method.
+     *
+     * @return bool True if interactive mode is enabled, false otherwise
+     */
+    protected function isInteractive(): bool
+    {
+        // Access $input property from the class using this trait
+        // AbstractAppType and commands have this property
+        return isset($this->input) && $this->input->isInteractive();
     }
 
     /**
@@ -300,6 +334,10 @@ trait InteractsWithPrompts
      * default values, placeholders, and hints. The prompt will loop until
      * valid input is provided.
      *
+     * In non-interactive mode (--no-interaction flag), returns the default value
+     * without prompting. If no default is provided and the field is required,
+     * returns an empty string.
+     *
      * @param  string      $label       The prompt label
      * @param  string      $placeholder Placeholder text shown when empty
      * @param  string      $default     Default value if user presses enter
@@ -316,6 +354,11 @@ trait InteractsWithPrompts
         mixed $validate = null,
         string $hint = '',
     ): string {
+        // In non-interactive mode, return default value without prompting
+        if (! $this->isInteractive()) {
+            return $default;
+        }
+
         return text(
             label: $label,
             placeholder: $placeholder,
@@ -331,6 +374,9 @@ trait InteractsWithPrompts
      *
      * Similar to text() but allows multiple lines of input. Useful for
      * descriptions, commit messages, or any content that spans multiple lines.
+     *
+     * In non-interactive mode (--no-interaction flag), returns the default value
+     * without prompting.
      *
      * @param  string      $label       The prompt label
      * @param  string      $placeholder Placeholder text shown when empty
@@ -350,6 +396,11 @@ trait InteractsWithPrompts
         string $hint = '',
         int $rows = 5,
     ): string {
+        // In non-interactive mode, return default value without prompting
+        if (! $this->isInteractive()) {
+            return $default;
+        }
+
         return textarea(
             label: $label,
             placeholder: $placeholder,
@@ -367,6 +418,10 @@ trait InteractsWithPrompts
      * Displays a password input prompt where characters are masked as they're
      * typed. Supports validation and required field enforcement.
      *
+     * In non-interactive mode (--no-interaction flag), returns an empty string
+     * without prompting. Password fields should typically have defaults provided
+     * via command-line options in non-interactive scenarios.
+     *
      * @param  string      $label       The prompt label
      * @param  string      $placeholder Placeholder text shown when empty
      * @param  bool|string $required    Whether input is required (or custom error message)
@@ -381,6 +436,11 @@ trait InteractsWithPrompts
         mixed $validate = null,
         string $hint = '',
     ): string {
+        // In non-interactive mode, return empty string (passwords should be provided via options)
+        if (! $this->isInteractive()) {
+            return '';
+        }
+
         return password(
             label: $label,
             placeholder: $placeholder,
@@ -395,6 +455,9 @@ trait InteractsWithPrompts
      *
      * Displays a confirmation prompt with customizable yes/no labels.
      * Returns true for yes, false for no.
+     *
+     * In non-interactive mode (--no-interaction flag), returns the default value
+     * without prompting.
      *
      * @param  string      $label    The confirmation question
      * @param  bool        $default  Default value (true for yes, false for no)
@@ -414,6 +477,11 @@ trait InteractsWithPrompts
         mixed $validate = null,
         string $hint = '',
     ): bool {
+        // In non-interactive mode, return default value without prompting
+        if (! $this->isInteractive()) {
+            return $default;
+        }
+
         return confirm(
             label: $label,
             default: $default,
@@ -432,6 +500,9 @@ trait InteractsWithPrompts
      * keys and select an option with enter. Returns the selected option's
      * key or value.
      *
+     * In non-interactive mode (--no-interaction flag), returns the default value
+     * if provided, otherwise returns the first option's key.
+     *
      * @param  array<int|string, string> $options  Array of options (key => label)
      * @param  string                    $label    The prompt label
      * @param  int|string|null           $default  Default selected option key
@@ -448,6 +519,17 @@ trait InteractsWithPrompts
         mixed $validate = null,
         string $hint = '',
     ): int|string {
+        // In non-interactive mode, return default or first option
+        if (! $this->isInteractive()) {
+            if ($default !== null) {
+                return $default;
+            }
+            // Return first option key if no default provided
+            $keys = array_keys($options);
+
+            return $keys[0] ?? '';
+        }
+
         return select(
             label: $label,
             options: $options,
@@ -464,6 +546,9 @@ trait InteractsWithPrompts
      * Displays an interactive menu where the user can toggle multiple
      * options with space and confirm with enter. Returns an array of
      * selected option keys.
+     *
+     * In non-interactive mode (--no-interaction flag), returns the default array
+     * without prompting.
      *
      * @param  array<int|string, string> $options  Array of options (key => label)
      * @param  string                    $label    The prompt label
@@ -483,6 +568,11 @@ trait InteractsWithPrompts
         mixed $validate = null,
         string $hint = '',
     ): array {
+        // In non-interactive mode, return default selections
+        if (! $this->isInteractive()) {
+            return $default;
+        }
+
         return multiselect(
             label: $label,
             options: $options,
@@ -500,6 +590,9 @@ trait InteractsWithPrompts
      * Similar to text() but provides auto-completion as the user types.
      * Suggestions can be a static array or a closure that returns suggestions
      * based on the current input.
+     *
+     * In non-interactive mode (--no-interaction flag), returns the default value
+     * without prompting.
      *
      * @param  array<string>|Closure(string): array<string> $options     Array of suggestions or closure
      * @param  string                                       $label       The prompt label
@@ -521,6 +614,11 @@ trait InteractsWithPrompts
         mixed $validate = null,
         string $hint = '',
     ): string {
+        // In non-interactive mode, return default value without prompting
+        if (! $this->isInteractive()) {
+            return $default;
+        }
+
         return suggest(
             label: $label,
             options: $options,
@@ -539,6 +637,9 @@ trait InteractsWithPrompts
      * Displays a search input that calls a closure to fetch matching options
      * as the user types. Useful for large datasets or API-based searches.
      *
+     * In non-interactive mode (--no-interaction flag), calls the closure with an
+     * empty string and returns the first option's key from the results.
+     *
      * @param  Closure(string): array<int|string, string> $options     Closure that returns options based on search query
      * @param  string                                     $label       The prompt label
      * @param  string                                     $placeholder Placeholder text
@@ -555,6 +656,14 @@ trait InteractsWithPrompts
         mixed $validate = null,
         string $hint = '',
     ): int|string {
+        // In non-interactive mode, call closure with empty string and return first result
+        if (! $this->isInteractive()) {
+            $results = $options('');
+            $keys = array_keys($results);
+
+            return $keys[0] ?? '';
+        }
+
         return search(
             label: $label,
             options: $options,

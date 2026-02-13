@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PhpHive\Cli\Concerns;
+namespace PhpHive\Cli\Concerns\Infrastructure;
 
 use PhpHive\Cli\Contracts\AppTypeInterface;
 use PhpHive\Cli\DTOs\Infrastructure\StorageConfig;
@@ -324,7 +324,7 @@ trait InteractsWithStorage
      * - User prefers local installation
      * - Docker setup failed
      *
-     * In non-interactive mode, returns sensible defaults with auto-generated credentials.
+     * In non-interactive mode, uses defaults (localhost:9000, auto-generated credentials).
      *
      * Security considerations:
      * - Prompts user to generate new credentials or provide existing ones
@@ -336,35 +336,26 @@ trait InteractsWithStorage
      */
     private function setupLocalMinioStorage(string $appName): array
     {
-        // In non-interactive mode, return defaults with auto-generated credentials
-        if (! $this->input->isInteractive()) {
-            return [
-                'storage_driver' => StorageDriver::MINIO->value,
-                'storage_endpoint' => 'localhost',
-                'storage_port' => 9000,
-                'storage_access_key' => bin2hex(random_bytes(10)),
-                'storage_secret_key' => bin2hex(random_bytes(20)),
-                'storage_bucket' => strtolower(preg_replace('/[^a-zA-Z0-9]/', '-', $appName) ?? $appName),
-                'storage_console_port' => 9001,
-                AppTypeInterface::CONFIG_USING_DOCKER => false,
-            ];
-        }
-
         // Prompt for MinIO server endpoint/hostname
+        // In non-interactive mode, automatically uses default
         $endpoint = $this->text('MinIO endpoint', default: 'localhost', required: true);
 
         // Prompt for MinIO API port
+        // In non-interactive mode, automatically uses default
         $port = (int) $this->text('MinIO API port', default: '9000', required: true);
 
         // Prompt for Console port
+        // In non-interactive mode, automatically uses default
         $consolePort = (int) $this->text('MinIO Console port', default: '9001', required: true);
 
         // Prompt for access key - offer to generate or let user provide their own
+        // In non-interactive mode, defaults to true (generate new key)
         $accessKey = $this->confirm('Generate new access key?', true)
             ? bin2hex(random_bytes(10))  // Generate secure 20-char key
             : $this->text('Access key', required: true);  // Use user-provided key
 
         // Prompt for secret key - offer to generate or let user provide their own
+        // In non-interactive mode, defaults to true (generate new key)
         $secretKey = $this->confirm('Generate new secret key?', true)
             ? bin2hex(random_bytes(20))  // Generate secure 40-char key
             : $this->text('Secret key', required: true);  // Use user-provided key
@@ -373,6 +364,7 @@ trait InteractsWithStorage
         $defaultBucket = strtolower(preg_replace('/[^a-zA-Z0-9]/', '-', $appName) ?? $appName);
 
         // Prompt for bucket name
+        // In non-interactive mode, automatically uses default
         $bucket = $this->text('Default bucket name', default: $defaultBucket, required: true);
 
         // Return configuration array

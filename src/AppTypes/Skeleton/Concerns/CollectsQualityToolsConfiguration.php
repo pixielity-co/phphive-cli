@@ -48,6 +48,8 @@ trait CollectsQualityToolsConfiguration
      * - pint.json configuration will be generated
      * - composer scripts for analysis and formatting will be added
      *
+     * In non-interactive mode (--no-interaction flag), both options default to true.
+     *
      * @return array<string, mixed> Configuration array with CONFIG_INCLUDE_TESTS and CONFIG_INCLUDE_QUALITY_TOOLS keys
      */
     protected function collectQualityToolsConfig(): array
@@ -55,6 +57,7 @@ trait CollectsQualityToolsConfiguration
         return [
             // PHPUnit for testing - enables writing and running unit tests
             // Defaults to true as testing is a fundamental best practice
+            // In non-interactive mode, automatically includes tests
             AppTypeInterface::CONFIG_INCLUDE_TESTS => $this->confirm(
                 label: 'Include PHPUnit for testing?',
                 default: true
@@ -64,6 +67,7 @@ trait CollectsQualityToolsConfiguration
             // PHPStan finds bugs through static analysis without running code
             // Pint automatically formats code to match Laravel's style guide
             // Defaults to true as they significantly improve code quality
+            // In non-interactive mode, automatically includes quality tools
             AppTypeInterface::CONFIG_INCLUDE_QUALITY_TOOLS => $this->confirm(
                 label: 'Include quality tools (PHPStan, Pint)?',
                 default: true

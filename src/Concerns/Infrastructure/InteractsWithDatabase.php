@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PhpHive\Cli\Concerns;
+namespace PhpHive\Cli\Concerns\Infrastructure;
 
 use PhpHive\Cli\Contracts\AppTypeInterface;
 use PhpHive\Cli\DTOs\Infrastructure\DatabaseConfig;

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace MonoPhp\{{APP_NAMESPACE}}\Tests\Unit;
+namespace PhpHive\{{APP_NAMESPACE}}\Tests\Unit;
 
-use MonoPhp\{{APP_NAMESPACE}}\Example;
+use PhpHive\{{APP_NAMESPACE}}\Example;
 use PHPUnit\Framework\TestCase;
 
 class ExampleTest extends TestCase

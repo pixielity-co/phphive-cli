@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PhpHive\Cli\Concerns;
+namespace PhpHive\Cli\Concerns\Infrastructure;
 
 use PhpHive\Cli\DTOs\Infrastructure\QueueConfig;
 use PhpHive\Cli\Enums\QueueDriver;

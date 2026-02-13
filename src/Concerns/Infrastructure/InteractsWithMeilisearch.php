@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PhpHive\Cli\Concerns;
+namespace PhpHive\Cli\Concerns\Infrastructure;
 
 use PhpHive\Cli\Contracts\AppTypeInterface;
 use PhpHive\Cli\DTOs\Infrastructure\SearchConfig;
@@ -157,29 +157,22 @@ trait InteractsWithMeilisearch
      * - User prefers local installation
      * - Docker setup failed
      *
-     * In non-interactive mode, returns sensible defaults.
+     * In non-interactive mode, uses defaults (http://localhost:7700, auto-generated key).
      *
      * @return array Meilisearch configuration array with connection details
      */
     private function setupLocalMeilisearch(): array
     {
-        // In non-interactive mode, return defaults
-        if (! $this->input->isInteractive()) {
-            return [
-                'meilisearch_host' => 'http://localhost',
-                'meilisearch_port' => 7700,
-                'meilisearch_master_key' => bin2hex(random_bytes(16)),
-                AppTypeInterface::CONFIG_USING_DOCKER => false,
-            ];
-        }
-
         // Prompt for Meilisearch host URL
+        // In non-interactive mode, automatically uses default
         $host = $this->text('Meilisearch host', default: 'http://localhost', required: true);
 
         // Prompt for Meilisearch port
+        // In non-interactive mode, automatically uses default
         $port = (int) $this->text('Meilisearch port', default: '7700', required: true);
 
         // Prompt for master key - offer to generate or let user provide their own
+        // In non-interactive mode, defaults to true (generate new key)
         $masterKey = $this->confirm('Generate new master key?', true)
             ? bin2hex(random_bytes(16))  // Generate secure key
             : $this->text('Master key', required: true);  // Use user-provided key

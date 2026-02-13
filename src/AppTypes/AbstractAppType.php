@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace PhpHive\Cli\AppTypes;
 
-use PhpHive\Cli\Concerns\InteractsWithDatabase;
+use PhpHive\Cli\Concerns\Infrastructure\InteractsWithDatabase;
+use PhpHive\Cli\Concerns\Infrastructure\InteractsWithElasticsearch;
+use PhpHive\Cli\Concerns\Infrastructure\InteractsWithMeilisearch;
+use PhpHive\Cli\Concerns\Infrastructure\InteractsWithQueue;
+use PhpHive\Cli\Concerns\Infrastructure\InteractsWithRedis;
+use PhpHive\Cli\Concerns\Infrastructure\InteractsWithStorage;
 use PhpHive\Cli\Concerns\InteractsWithDocker;
-use PhpHive\Cli\Concerns\InteractsWithElasticsearch;
-use PhpHive\Cli\Concerns\InteractsWithMeilisearch;
 use PhpHive\Cli\Concerns\InteractsWithPrompts;
-use PhpHive\Cli\Concerns\InteractsWithQueue;
-use PhpHive\Cli\Concerns\InteractsWithRedis;
-use PhpHive\Cli\Concerns\InteractsWithStorage;
 use PhpHive\Cli\Contracts\AppTypeInterface;
 use PhpHive\Cli\Enums\DatabaseType;
 use PhpHive\Cli\Enums\SearchEngine;

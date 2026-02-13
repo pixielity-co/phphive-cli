@@ -44,6 +44,8 @@ trait CollectsBasicConfiguration
      * - Description: composer.json description field, README content
      * - PHP version: composer.json require.php constraint (^X.Y format)
      *
+     * In non-interactive mode (--no-interaction flag), uses defaults for all prompts.
+     *
      * @return array<string, mixed> Configuration array with CONFIG_NAME, CONFIG_DESCRIPTION, and CONFIG_PHP_VERSION keys
      */
     protected function collectBasicConfig(): array
@@ -68,18 +70,20 @@ trait CollectsBasicConfiguration
             );
         }
 
+        // Minimum PHP version - automatically uses default in non-interactive mode
+        $phpVersion = $this->select(
+            label: 'Minimum PHP version',
+            options: PhpVersion::choices(),
+            default: PhpVersion::recommended()->value
+        );
+
         return [
             AppTypeInterface::CONFIG_NAME => $name,
             AppTypeInterface::CONFIG_DESCRIPTION => $description,
-
             // Minimum PHP version - determines language features available
             // Used in composer.json as "require": {"php": "^X.Y"}
             // Defaults to 8.3 as it's widely supported and stable
-            AppTypeInterface::CONFIG_PHP_VERSION => $this->select(
-                label: 'Minimum PHP version',
-                options: PhpVersion::choices(),
-                default: PhpVersion::recommended()->value
-            ),
+            AppTypeInterface::CONFIG_PHP_VERSION => $phpVersion,
         ];
     }
 }

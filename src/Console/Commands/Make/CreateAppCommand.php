@@ -865,6 +865,13 @@ final class CreateAppCommand extends BaseMakeCommand
                         Stub::create($relativePath, $variables)->saveTo($appPath, $targetPath);
                     }
                 } else {
+                    // Create parent directory if it doesn't exist
+                    $targetFile = "{$appPath}/{$targetPath}";
+                    $targetDir = dirname($targetFile);
+                    if (! $this->filesystem()->isDirectory($targetDir)) {
+                        $filesystem->makeDirectory($targetDir, 0755, true);
+                    }
+
                     // Write/overwrite the file using Stub facade
                     Stub::create($relativePath, $variables)->saveTo($appPath, $targetPath);
                 }

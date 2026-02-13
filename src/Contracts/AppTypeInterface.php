@@ -228,86 +228,98 @@ interface AppTypeInterface
     /**
      * Application name stub variable.
      *
-     * Placeholder for the original application name in stub templates.
+     * Key for the original application name in stub templates.
+     * Template placeholder: {{APP_NAME}}
      */
-    public const STUB_APP_NAME = '{{APP_NAME}}';
+    public const STUB_APP_NAME = 'app_name';
 
     /**
      * Normalized application name stub variable.
      *
-     * Placeholder for the normalized application name (lowercase, hyphenated) in stub templates.
+     * Key for the normalized application name (lowercase, hyphenated) in stub templates.
+     * Template placeholder: {{APP_NAME_NORMALIZED}}
      */
-    public const STUB_APP_NAME_NORMALIZED = '{{APP_NAME_NORMALIZED}}';
+    public const STUB_APP_NAME_NORMALIZED = 'app_name_normalized';
 
     /**
      * Application namespace stub variable.
      *
-     * Placeholder for the PascalCase namespace component in stub templates.
+     * Key for the PascalCase namespace component in stub templates.
+     * Template placeholder: {{APP_NAMESPACE}}
      */
-    public const STUB_APP_NAMESPACE = '{{APP_NAMESPACE}}';
+    public const STUB_APP_NAMESPACE = 'app_namespace';
 
     /**
      * Package name stub variable.
      *
-     * Placeholder for the full Composer package name in stub templates.
+     * Key for the full Composer package name in stub templates.
+     * Template placeholder: {{PACKAGE_NAME}}
      */
-    public const STUB_PACKAGE_NAME = '{{PACKAGE_NAME}}';
+    public const STUB_PACKAGE_NAME = 'package_name';
 
     /**
      * Description stub variable.
      *
-     * Placeholder for the application description in stub templates.
+     * Key for the application description in stub templates.
+     * Template placeholder: {{DESCRIPTION}}
      */
-    public const STUB_DESCRIPTION = '{{DESCRIPTION}}';
+    public const STUB_DESCRIPTION = 'description';
 
     /**
      * PHP version stub variable.
      *
-     * Placeholder for the PHP version in stub templates.
+     * Key for the PHP version in stub templates.
+     * Template placeholder: {{PHP_VERSION}}
      */
-    public const STUB_PHP_VERSION = '{{PHP_VERSION}}';
+    public const STUB_PHP_VERSION = 'php_version';
 
     /**
      * Database driver stub variable.
      *
-     * Placeholder for the database driver in stub templates.
+     * Key for the database driver in stub templates.
+     * Template placeholder: {{DATABASE_DRIVER}}
      */
-    public const STUB_DATABASE_DRIVER = '{{DATABASE_DRIVER}}';
+    public const STUB_DATABASE_DRIVER = 'database_driver';
 
     /**
      * Laravel version stub variable.
      *
-     * Placeholder for the Laravel version in stub templates.
+     * Key for the Laravel version in stub templates.
+     * Template placeholder: {{LARAVEL_VERSION}}
      */
-    public const STUB_LARAVEL_VERSION = '{{LARAVEL_VERSION}}';
+    public const STUB_LARAVEL_VERSION = 'laravel_version';
 
     /**
      * Symfony version stub variable.
      *
-     * Placeholder for the Symfony version in stub templates.
+     * Key for the Symfony version in stub templates.
+     * Template placeholder: {{SYMFONY_VERSION}}
      */
-    public const STUB_SYMFONY_VERSION = '{{SYMFONY_VERSION}}';
+    public const STUB_SYMFONY_VERSION = 'symfony_version';
 
     /**
      * Magento version stub variable.
      *
-     * Placeholder for the Magento version in stub templates.
+     * Key for the Magento version in stub templates.
+     * Template placeholder: {{MAGENTO_VERSION}}
      */
-    public const STUB_MAGENTO_VERSION = '{{MAGENTO_VERSION}}';
+    public const STUB_MAGENTO_VERSION = 'magento_version';
 
     /**
      * Base URL stub variable.
      *
-     * Placeholder for the base URL in stub templates.
+     * Key for the base URL in stub templates.
+     * Template placeholder: {{BASE_URL}}
      */
-    public const STUB_BASE_URL = '{{BASE_URL}}';
+    public const STUB_BASE_URL = 'base_url';
 
     /**
      * Admin user stub variable.
      *
-     * Placeholder for the admin username in stub templates.
+     * Key for the admin username in stub templates.
+     * Template placeholder: {{ADMIN_USER}}
      */
-    public const STUB_ADMIN_USER = '{{ADMIN_USER}}';
+    public const STUB_ADMIN_USER = 'admin_user';
 
     /**
      * Get the display name of the app type.

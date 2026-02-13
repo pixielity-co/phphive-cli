@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PhpHive\Cli\Concerns;
+namespace PhpHive\Cli\Concerns\Infrastructure;
 
 use PhpHive\Cli\Contracts\AppTypeInterface;
 use PhpHive\Cli\DTOs\Infrastructure\RedisConfig;
@@ -140,21 +140,19 @@ trait InteractsWithRedis
      * The password is automatically generated using cryptographically secure
      * random bytes to ensure security. It's displayed to the user for reference.
      *
+     * In non-interactive mode, uses default port 6379 and auto-generated password.
+     *
      * @param  string     $appName Application name for container naming
      * @param  string     $appPath Absolute path to application directory for Docker Compose
      * @return array|null Redis configuration array on success, null on failure
      */
     protected function setupDockerRedis(string $appName, string $appPath): ?array
     {
-        // In non-interactive mode, skip Docker setup (requires user input)
-        if (! $this->input->isInteractive()) {
-            return null;
-        }
-
         // Generate a secure 32-character password (16 bytes = 32 hex chars)
         $password = bin2hex(random_bytes(16));
 
         // Prompt for port number (default: 6379 - Redis standard port)
+        // In non-interactive mode, automatically uses default
         $port = (int) $this->text('Redis port', '6379', '6379', true);
 
         // Create type-safe configuration object for Docker setup
@@ -245,7 +243,7 @@ trait InteractsWithRedis
      * Collects Redis connection details from the user when automatic setup
      * is not possible or when Redis is installed but not yet configured.
      *
-     * In non-interactive mode, returns sensible defaults for automated setups.
+     * In non-interactive mode, returns sensible defaults (localhost:6379, no password).
      *
      * Configuration collected:
      * - Host: Redis server hostname or IP (default: localhost)
@@ -256,20 +254,18 @@ trait InteractsWithRedis
      */
     protected function promptRedisConfiguration(): array
     {
-        // In non-interactive mode, return defaults (no password for simplicity)
-        if (! $this->input->isInteractive()) {
-            return ['redis_host' => 'localhost', 'redis_port' => 6379, 'redis_password' => '', AppTypeInterface::CONFIG_USING_DOCKER => false];
-        }
-
         // Prompt for Redis host (default: localhost for local development)
+        // In non-interactive mode, automatically uses default
         $host = $this->text('Redis host', 'localhost', 'localhost', true);
 
         // Prompt for Redis port (default: 6379 - Redis standard port)
+        // In non-interactive mode, automatically uses default
         $port = (int) $this->text('Redis port', '6379', '6379', true);
 
         // Ask if password authentication is required
         // If yes, prompt for password securely (hidden input)
         // If no, use empty string (Redis default for no auth)
+        // In non-interactive mode, defaults to false (no password)
         $password = $this->confirm('Does Redis require a password?', false) ? $this->password('Redis password') : '';
 
         // Return configuration array
