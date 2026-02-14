@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PhpHive\Cli\AppTypes\Symfony\Concerns;
 
+use Illuminate\Support\Str;
 use PhpHive\Cli\Contracts\AppTypeInterface;
 
 /**

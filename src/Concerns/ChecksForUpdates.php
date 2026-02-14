@@ -134,8 +134,13 @@ trait ChecksForUpdates
         }
 
         // Read cache file
+        /* @phpstan-ignore-next-line */
+        if (! $this->filesystem()->exists($cacheFile)) {
+            return true;
+        }
+
         $content = $this->filesystem()->read($cacheFile);
-        if ($content === null) {
+        if ($content === '') {
             return true;
         }
 
@@ -161,12 +166,18 @@ trait ChecksForUpdates
      */
     private function displayCachedUpdateNotification(string $cacheFile, string $currentVersion): void
     {
+        /* @phpstan-ignore-next-line */
         if (! $this->filesystem()->exists($cacheFile)) {
             return;
         }
 
         $content = $this->filesystem()->read($cacheFile);
-        if ($content === null) {
+        if ($content === '') {
+            return;
+        }
+
+        $content = $this->filesystem()->read($cacheFile);
+        if ($content === '') {
             return;
         }
 

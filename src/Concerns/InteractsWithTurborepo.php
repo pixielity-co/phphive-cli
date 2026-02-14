@@ -227,8 +227,13 @@ trait InteractsWithTurborepo
         }
 
         // Parse JSON configuration
+        /* @phpstan-ignore-next-line */
+        if (! $this->filesystem()->exists($turboJson)) {
+            return [];
+        }
+
         $content = $this->filesystem()->read($turboJson);
-        if ($content === null) {
+        if ($content === '') {
             return [];
         }
         $config = json_decode($content, true);

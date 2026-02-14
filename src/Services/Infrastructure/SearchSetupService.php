@@ -8,7 +8,6 @@ use Exception;
 use PhpHive\Cli\DTOs\Infrastructure\SearchConfig;
 use PhpHive\Cli\Enums\SearchEngine;
 use PhpHive\Cli\Support\Docker;
-use PhpHive\Cli\Support\Filesystem;
 use PhpHive\Cli\Support\Process;
 use Pixielity\StubGenerator\Exceptions\StubNotFoundException;
 use Pixielity\StubGenerator\Facades\Stub;
@@ -58,21 +57,12 @@ final readonly class SearchSetupService
     /**
      * Create a new instance using static factory pattern.
      *
-     * @param Docker     $docker     Docker service
-     * @param Process    $process    Process service
-     * @param Filesystem $filesystem Filesystem service
-     */
-    /**
-     * Create a new instance using static factory pattern.
-     *
      * @return self A new SearchSetupService instance with dependencies
      */
     public static function make(): self
     {
         return new self(
-            docker: Docker::make(),
-            process: Process::make(),
-            filesystem: Filesystem::make(),
+            Process::make(),
         );
     }
 

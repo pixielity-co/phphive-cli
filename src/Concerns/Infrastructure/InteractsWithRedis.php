@@ -221,8 +221,9 @@ trait InteractsWithRedis
             $this->error('✗ Could not connect to Redis');
 
             // Offer Docker as a fallback option if available
-            if ($this->isDockerAvailable() && $this->confirm('Use Docker instead?', true)) {
-                $dockerConfig = $this->setupDockerRedis($appName, getcwd() ?? '.');
+            $currentDir = getcwd();
+            if ($this->isDockerAvailable() && $this->confirm('Use Docker instead?', true) && $currentDir !== false) {
+                $dockerConfig = $this->setupDockerRedis($appName, $currentDir);
                 if ($dockerConfig !== null) {
                     return $dockerConfig;
                 }

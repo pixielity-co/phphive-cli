@@ -56,8 +56,11 @@ trait Emitter
         }
 
         if ($event === null) {
+            /* @phpstan-ignore-next-line */
             unset($this->emitterSingleEventCollection);
+            /* @phpstan-ignore-next-line */
             unset($this->emitterEventCollection);
+            /* @phpstan-ignore-next-line */
             unset($this->emitterEventSorted);
 
             return;

@@ -137,6 +137,7 @@ trait InteractsWithPrompts
     {
         // Access $input property from the class using this trait
         // AbstractAppType and commands have this property
+        /* @phpstan-ignore-next-line */
         return isset($this->input) && $this->input->isInteractive();
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PhpHive\Cli\Console\Commands\Make;
 
+use Closure;
 use Exception;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -546,18 +547,18 @@ final class CreatePackageCommand extends BaseMakeCommand
      * - Exception is caught by execute() method's try-catch block
      * - Triggers cleanup and displays error message
      *
-     * @param callable $step      Step closure to execute
-     * @param string   $message   Step description for display
-     * @param string   $name      Package name (for error messages)
-     * @param string   $type      Package type (for error messages)
-     * @param bool     $isQuiet   Suppress output messages
-     * @param bool     $isJson    Output in JSON format
-     * @param bool     $isVerbose Show detailed output
+     * @param Closure $step      Step closure to execute
+     * @param string  $message   Step description for display
+     * @param string  $name      Package name (for error messages)
+     * @param string  $type      Package type (for error messages)
+     * @param bool    $isQuiet   Suppress output messages
+     * @param bool    $isJson    Output in JSON format
+     * @param bool    $isVerbose Show detailed output
      *
      * @throws Exception If step fails (returns false)
      */
     private function executeStep(
-        callable $step,
+        Closure $step,
         string $message,
         string $name,
         string $type,
@@ -574,6 +575,7 @@ final class CreatePackageCommand extends BaseMakeCommand
             $result = $step();
         } else {
             // Show spinner during execution
+            /** @var Closure(): mixed $step */
             $result = $this->spin($step, "{$message}...");
         }
 

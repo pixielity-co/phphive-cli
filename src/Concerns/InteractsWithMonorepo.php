@@ -156,8 +156,13 @@ trait InteractsWithMonorepo
         }
 
         // Parse workspace patterns from YAML file
+        /* @phpstan-ignore-next-line */
+        if (! $this->filesystem()->exists($workspaceFile)) {
+            return collect([]);
+        }
+
         $content = $this->filesystem()->read($workspaceFile);
-        if ($content === null) {
+        if ($content === '') {
             return collect([]);
         }
         preg_match_all('/- "([^"]+)"/', $content, $matches);
@@ -192,7 +197,7 @@ trait InteractsWithMonorepo
                 if ($this->filesystem()->exists($path . '/package.json')) {
                     // Parse package.json for metadata
                     $packageJsonContent = $this->filesystem()->read($path . '/package.json');
-                    if ($packageJsonContent === null) {
+                    if ($packageJsonContent === '') {
                         continue;
                     }
                     $packageJson = json_decode($packageJsonContent, true);
@@ -205,7 +210,7 @@ trait InteractsWithMonorepo
                         'path' => $path,
                         // Determine type based on path (apps/ vs packages/)
                         'type' => Str::contains($path, '/apps/') ? AppTypeInterface::WORKSPACE_TYPE_APP : AppTypeInterface::WORKSPACE_TYPE_PACKAGE,
-                        'packageName' => $packageJson['name'] ?? $name,
+                        'packageName' => is_string($packageJson['name'] ?? null) ? $packageJson['name'] : $name,
                         'hasComposer' => $this->filesystem()->exists($path . '/composer.json'),
                         'hasPackageJson' => true,
                     ];
@@ -315,8 +320,12 @@ trait InteractsWithMonorepo
 
         $composerJson = $workspace['path'] . '/composer.json';
 
+        if (! $this->filesystem()->exists($composerJson)) {
+            return null;
+        }
+
         $content = $this->filesystem()->read($composerJson);
-        if ($content === null) {
+        if ($content === '') {
             return null;
         }
         $data = json_decode($content, true);
@@ -346,8 +355,12 @@ trait InteractsWithMonorepo
 
         $packageJson = $workspace['path'] . '/package.json';
 
+        if (! $this->filesystem()->exists($packageJson)) {
+            return null;
+        }
+
         $content = $this->filesystem()->read($packageJson);
-        if ($content === null) {
+        if ($content === '') {
             return null;
         }
         $data = json_decode($content, true);
@@ -375,9 +388,9 @@ trait InteractsWithMonorepo
      */
     protected function getAllWorkspaceNames(): array
     {
-        return $this->getWorkspaces()
+        return array_values($this->getWorkspaces()
             ->pluck('name')
-            ->all();
+            ->all());
     }
 
     /**

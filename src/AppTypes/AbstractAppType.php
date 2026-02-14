@@ -255,10 +255,10 @@ abstract class AbstractAppType implements AppTypeInterface
      * ]
      * ```
      *
-     * @param  string $appName Application name for defaults
-     * @param  string $appPath Absolute path to application directory
-     * @param  array  $options Configuration options
-     * @return array  Infrastructure configuration array
+     * @param  string               $appName Application name for defaults
+     * @param  string               $appPath Absolute path to application directory
+     * @param  array                $options Configuration options
+     * @return array<string, mixed> Infrastructure configuration array
      */
     public function setupInfrastructure(
         string $appName,

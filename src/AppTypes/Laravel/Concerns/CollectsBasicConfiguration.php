@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PhpHive\Cli\AppTypes\Laravel\Concerns;
 
+use Illuminate\Support\Str;
 use PhpHive\Cli\Contracts\AppTypeInterface;
 
 /**

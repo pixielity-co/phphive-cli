@@ -224,10 +224,8 @@ trait InteractsWithDependencyInjection
         // Search setup service for search engine configuration
         $this->container->singleton(
             SearchSetupService::class,
-            fn (Container $container): SearchSetupService => SearchSetupService::make(
-                $container->make(Docker::class),
-                $container->make(Process::class),
-                $container->make(Filesystem::class)
+            fn (Container $container): SearchSetupService => new SearchSetupService(
+                $container->make(Process::class)
             )
         );
 
